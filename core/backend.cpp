@@ -32,7 +32,8 @@ std::string safe_id(const std::string &name) {
 }
 } // namespace
 
-Backend::Backend(std::string data_root) : sandbox_(std::move(data_root)) {}
+Backend::Backend(std::string data_root)
+    : sandbox_(std::move(data_root)), backup_mgr_(sandbox_, *this) {}
 
 std::string Backend::create_instance(InstanceConfig config) {
     std::lock_guard<std::mutex> lock(mutex_);
@@ -134,6 +135,55 @@ Json Backend::status_snapshot() const {
     root.set("count", static_cast<double>(instances.items().size()));
     root.set("time", now_iso());
     return root;
+}
+
+bool Backend::fs_write(const std::string &relative, const std::string &data) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return sandbox_.write(relative, data);
+}
+
+bool Backend::fs_mkdir(const std::string &relative) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return sandbox_.mkdirs(relative);
+}
+
+bool Backend::fs_rename(const std::string &from, const std::string &to) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return sandbox_.rename(from, to);
+}
+
+bool Backend::fs_remove(const std::string &relative) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return sandbox_.remove(relative);
+}
+
+bool Backend::fs_copy(const std::string &from, const std::string &to) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return sandbox_.copy(from, to);
+}
+
+std::string Backend::backup_create(const std::string &instance_id,
+                                   bool full) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return backup_mgr_.create(instance_id, full);
+}
+
+std::vector<BackupInfo> Backend::backup_list(
+    const std::string &instance_id) const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return backup_mgr_.list(instance_id);
+}
+
+bool Backend::backup_restore(const std::string &instance_id,
+                             const std::string &backup_id) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return backup_mgr_.restore(instance_id, backup_id);
+}
+
+bool Backend::backup_remove(const std::string &instance_id,
+                            const std::string &backup_id) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return backup_mgr_.remove(instance_id, backup_id);
 }
 
 } // namespace ps5craft

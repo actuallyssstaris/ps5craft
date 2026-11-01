@@ -47,7 +47,7 @@ cc() { "$CLANG" -std=c++17 -O2 -Wall -Wextra -fno-exceptions -fno-rtti \
 
 # App objects.
 objs=()
-for src in core/json.cpp core/fs.cpp core/instance.cpp core/server.cpp core/backend.cpp \
+for src in core/json.cpp core/fs.cpp core/zip.cpp core/backup.cpp core/instance.cpp core/server.cpp core/backend.cpp \
            core/platform_shims.cpp platform/process_host.cpp src/main.cpp src/http_api.cpp; do
   obj="$build/obj/$(basename "$src" .cpp).o"
   cc "$root/$src" "$obj"

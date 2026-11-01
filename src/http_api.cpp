@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
+/* HTTP management API over libmicrohttpd (websrv model). PS5 build only. */
 #include "http_api.hpp"
 
 #include <microhttpd.h>
@@ -17,6 +18,12 @@ namespace {
 
 ps5craft::Backend *g_backend = nullptr;
 struct MHD_Daemon *g_daemon = nullptr;
+
+/* Per-connection POST body accumulator. */
+struct conn_ctx {
+    std::string body;
+    bool body_done = false;
+};
 
 void add_cors(struct MHD_Response *resp) {
     MHD_add_response_header(resp, MHD_HTTP_HEADER_ACCESS_CONTROL_ALLOW_ORIGIN, "*");
@@ -49,6 +56,22 @@ enum MHD_Result send_text(struct MHD_Connection *conn, unsigned int status,
     enum MHD_Result ret = MHD_queue_response(conn, status, resp);
     MHD_destroy_response(resp);
     return ret;
+}
+
+/* Parse a single query parameter value from "key=val&...". */
+std::string query_param(const std::string &query, const std::string &key) {
+    std::size_t pos = 0;
+    while (pos < query.size()) {
+        std::size_t sep = query.find('&', pos);
+        if (sep == std::string::npos) sep = query.size();
+        std::size_t eq = query.find('=', pos);
+        if (eq != std::string::npos && eq < sep) {
+            std::string k = query.substr(pos, eq - pos);
+            if (k == key) return query.substr(eq + 1, sep - eq - 1);
+        }
+        pos = sep + 1;
+    }
+    return std::string();
 }
 
 std::string url_decode(const std::string &in) {
@@ -87,15 +110,33 @@ std::vector<std::string> path_parts(const std::string &uri) {
     return parts;
 }
 
+/* Return the POST body accumulated in con_cls (empty for GET). */
+std::string post_body(void **con_cls) {
+    conn_ctx *ctx = static_cast<conn_ctx *>(*con_cls);
+    if (!ctx) {
+        ctx = new conn_ctx();
+        *con_cls = ctx;
+    }
+    return ctx->body;
+}
+
+/* Called once the full body has been received. */
+void finish_body(void **con_cls) {
+    conn_ctx *ctx = static_cast<conn_ctx *>(*con_cls);
+    if (ctx) ctx->body_done = true;
+}
+
 } // namespace
 
+/* MHD request iterator: headers first, then body chunks, then a final call
+   with upload_data_size==0 to signal the body is complete. */
 extern "C" enum MHD_Result api_handler(void *cls, struct MHD_Connection *conn,
                                        const char *url, const char *method,
                                        const char *version,
                                        const char *upload_data,
                                        size_t *upload_data_size,
                                        void **con_cls) {
-    (void)cls; (void)version; (void)upload_data; (void)upload_data_size;
+    (void)cls; (void)version;
 
     if (!g_backend) return MHD_NO;
 
@@ -108,9 +149,24 @@ extern "C" enum MHD_Result api_handler(void *cls, struct MHD_Connection *conn,
         return ret;
     }
 
+    /* Accumulate POST body in per-connection context. */
+    if (std::strcmp(method, "POST") == 0) {
+        conn_ctx *ctx = static_cast<conn_ctx *>(*con_cls);
+        if (!ctx) {
+            ctx = new conn_ctx();
+            *con_cls = ctx;
+        }
+        if (upload_data && *upload_data_size > 0) {
+            ctx->body.append(upload_data, *upload_data_size);
+            *upload_data_size = 0;
+            return MHD_YES;
+        }
+    }
+
     std::string path = url ? url : "/";
     std::size_t q = path.find('?');
-    if (q != std::string::npos) path = path.substr(0, q);
+    std::string query;
+    if (q != std::string::npos) { query = path.substr(q + 1); path = path.substr(0, q); }
     auto parts = path_parts(path);
 
     /* /api/instances */
@@ -153,14 +209,15 @@ extern "C" enum MHD_Result api_handler(void *cls, struct MHD_Connection *conn,
         }
     }
 
-    /* /api/fs/:...  (sandboxed file listing/read) */
+    /* /api/fs/:...  (sandboxed file operations) */
     if (parts.size() >= 2 && parts[0] == "api" && parts[1] == "fs") {
+        std::string relative;
+        for (std::size_t i = 2; i < parts.size(); ++i) {
+            if (i > 2) relative += "/";
+            relative += parts[i];
+        }
+
         if (std::strcmp(method, "GET") == 0 && parts.size() >= 3) {
-            std::string relative;
-            for (std::size_t i = 2; i < parts.size(); ++i) {
-                if (i > 2) relative += "/";
-                relative += parts[i];
-            }
             ps5craft::FileEntry entry;
             if (!g_backend->sandbox().entry_stat(relative, entry)) {
                 ps5craft::Json err = ps5craft::Json::object();
@@ -198,12 +255,179 @@ extern "C" enum MHD_Result api_handler(void *cls, struct MHD_Connection *conn,
                 return send_text(conn, MHD_HTTP_OK, content);
             }
         }
+
+        if (std::strcmp(method, "POST") == 0 && parts.size() >= 3) {
+            std::string action = query_param(query, "action");
+            if (action == "write") {
+                std::string data = post_body(con_cls);
+                if (!g_backend->fs_write(relative, data)) {
+                    ps5craft::Json err = ps5craft::Json::object();
+                    err.set("error", "cannot write");
+                    return send_json(conn, MHD_HTTP_INTERNAL_SERVER_ERROR, err);
+                }
+                ps5craft::Json ok = ps5craft::Json::object();
+                ok.set("ok", true);
+                return send_json(conn, MHD_HTTP_OK, ok);
+            }
+            if (action == "mkdir") {
+                if (!g_backend->fs_mkdir(relative)) {
+                    ps5craft::Json err = ps5craft::Json::object();
+                    err.set("error", "cannot mkdir");
+                    return send_json(conn, MHD_HTTP_INTERNAL_SERVER_ERROR, err);
+                }
+                ps5craft::Json ok = ps5craft::Json::object();
+                ok.set("ok", true);
+                return send_json(conn, MHD_HTTP_OK, ok);
+            }
+            if (action == "rename") {
+                std::string to = url_decode(query_param(query, "to"));
+                if (to.empty()) {
+                    ps5craft::Json err = ps5craft::Json::object();
+                    err.set("error", "missing target");
+                    return send_json(conn, MHD_HTTP_BAD_REQUEST, err);
+                }
+                if (!g_backend->fs_rename(relative, to)) {
+                    ps5craft::Json err = ps5craft::Json::object();
+                    err.set("error", "cannot rename");
+                    return send_json(conn, MHD_HTTP_INTERNAL_SERVER_ERROR, err);
+                }
+                ps5craft::Json ok = ps5craft::Json::object();
+                ok.set("ok", true);
+                return send_json(conn, MHD_HTTP_OK, ok);
+            }
+            if (action == "delete") {
+                if (!g_backend->fs_remove(relative)) {
+                    ps5craft::Json err = ps5craft::Json::object();
+                    err.set("error", "cannot delete");
+                    return send_json(conn, MHD_HTTP_INTERNAL_SERVER_ERROR, err);
+                }
+                ps5craft::Json ok = ps5craft::Json::object();
+                ok.set("ok", true);
+                return send_json(conn, MHD_HTTP_OK, ok);
+            }
+            if (action == "copy") {
+                std::string to = url_decode(query_param(query, "to"));
+                if (to.empty()) {
+                    ps5craft::Json err = ps5craft::Json::object();
+                    err.set("error", "missing target");
+                    return send_json(conn, MHD_HTTP_BAD_REQUEST, err);
+                }
+                if (!g_backend->fs_copy(relative, to)) {
+                    ps5craft::Json err = ps5craft::Json::object();
+                    err.set("error", "cannot copy");
+                    return send_json(conn, MHD_HTTP_INTERNAL_SERVER_ERROR, err);
+                }
+                ps5craft::Json ok = ps5craft::Json::object();
+                ok.set("ok", true);
+                return send_json(conn, MHD_HTTP_OK, ok);
+            }
+            ps5craft::Json err = ps5craft::Json::object();
+            err.set("error", "unknown action");
+            return send_json(conn, MHD_HTTP_BAD_REQUEST, err);
+        }
     }
 
     /* /api/status */
     if (parts.size() == 2 && parts[0] == "api" && parts[1] == "status" &&
         std::strcmp(method, "GET") == 0) {
         return send_json(conn, MHD_HTTP_OK, g_backend->status_snapshot());
+    }
+
+    /* /api/backup/<id>  (list) */
+    if (parts.size() == 3 && parts[0] == "api" && parts[1] == "backup" &&
+        std::strcmp(method, "GET") == 0) {
+        auto backups = g_backend->backup_list(parts[2]);
+        Json arr = Json::array();
+        for (const auto &b : backups) {
+            Json item = Json::object();
+            item.set("id", b.id);
+            item.set("file_name", b.file_name);
+            item.set("path", b.path);
+            item.set("size", static_cast<double>(b.size));
+            item.set("modified", static_cast<double>(b.modified));
+            item.set("instance_id", b.instance_id);
+            item.set("full", b.full);
+            arr.push(item);
+        }
+        Json root = Json::object();
+        root.set("instance_id", parts[2]);
+        root.set("backups", arr);
+        return send_json(conn, MHD_HTTP_OK, root);
+    }
+
+    /* /api/backup/<id>/create  (POST ?full=1) */
+    if (parts.size() == 4 && parts[0] == "api" && parts[1] == "backup" &&
+        parts[3] == "create" && std::strcmp(method, "POST") == 0) {
+        bool full = query_param(query, "full") == "1";
+        std::string id = g_backend->backup_create(parts[2], full);
+        if (id.empty()) {
+            Json err = Json::object();
+            err.set("error", "cannot create backup");
+            return send_json(conn, MHD_HTTP_INTERNAL_SERVER_ERROR, err);
+        }
+        Json ok = Json::object();
+        ok.set("ok", true);
+        ok.set("id", id);
+        return send_json(conn, MHD_HTTP_OK, ok);
+    }
+
+    /* /api/backup/<id>/<backup>/restore  (POST) */
+    if (parts.size() == 5 && parts[0] == "api" && parts[1] == "backup" &&
+        parts[4] == "restore" && std::strcmp(method, "POST") == 0) {
+        if (!g_backend->backup_restore(parts[2], parts[3])) {
+            Json err = Json::object();
+            err.set("error", "cannot restore");
+            return send_json(conn, MHD_HTTP_INTERNAL_SERVER_ERROR, err);
+        }
+        Json ok = Json::object();
+        ok.set("ok", true);
+        return send_json(conn, MHD_HTTP_OK, ok);
+    }
+
+    /* /api/backup/<id>/<backup>/delete  (POST) */
+    if (parts.size() == 5 && parts[0] == "api" && parts[1] == "backup" &&
+        parts[4] == "delete" && std::strcmp(method, "POST") == 0) {
+        if (!g_backend->backup_remove(parts[2], parts[3])) {
+            Json err = Json::object();
+            err.set("error", "cannot delete");
+            return send_json(conn, MHD_HTTP_INTERNAL_SERVER_ERROR, err);
+        }
+        Json ok = Json::object();
+        ok.set("ok", true);
+        return send_json(conn, MHD_HTTP_OK, ok);
+    }
+
+    /* /api/backup/<id>/<backup>/download  (GET) */
+    if (parts.size() == 5 && parts[0] == "api" && parts[1] == "backup" &&
+        parts[4] == "download" && std::strcmp(method, "GET") == 0) {
+        std::string zip_path = "backups/" + parts[2] + "/" + parts[3] + ".zip";
+        std::string abs_zip;
+        if (!g_backend->sandbox().resolve(zip_path, abs_zip)) {
+            Json err = Json::object();
+            err.set("error", "not found");
+            return send_json(conn, MHD_HTTP_NOT_FOUND, err);
+        }
+        std::string content;
+        if (!g_backend->sandbox().read(zip_path, content, 1ull << 30)) {
+            Json err = Json::object();
+            err.set("error", "cannot read");
+            return send_json(conn, MHD_HTTP_INTERNAL_SERVER_ERROR, err);
+        }
+        struct MHD_Response *resp =
+            MHD_create_response_from_buffer(content.size(),
+                                            (void *)content.data(),
+                                            MHD_RESPMEM_MUST_COPY);
+        if (!resp) return MHD_NO;
+        add_cors(resp);
+        MHD_add_response_header(resp, MHD_HTTP_HEADER_CONTENT_TYPE,
+                                "application/zip");
+        char disp[256];
+        std::snprintf(disp, sizeof disp, "attachment; filename=\"%s.zip\"",
+                      parts[3]);
+        MHD_add_response_header(resp, "Content-Disposition", disp);
+        enum MHD_Result ret = MHD_queue_response(conn, MHD_HTTP_OK, resp);
+        MHD_destroy_response(resp);
+        return ret;
     }
 
     ps5craft::Json err = ps5craft::Json::object();

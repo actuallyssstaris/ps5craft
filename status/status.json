@@ -1,54 +1,37 @@
 {
   "project": "PS5Craft",
   "tagline": "PS5 Minecraft Java server manager",
-  "updated": "2026-11-01T18:30:00Z",
-  "overall_percent": 45,
+  "updated": "2026-11-01T19:30:00Z",
+  "overall_percent": 50,
   "eta": {
     "core_host_verified": "done",
-    "ps5_native_binary": "built & signed; installable title folder at dist/PPSA90104. FTP install flaky on console ftpsrv; elfldr 9021 works.",
-    "note": "Host backend + HTTP API + dashboard validated end-to-end. On-console validation deferred (no SDK deps, FTP read-only)."
+    "ps5_native_binary": "built & signed; installable title folder at dist/PPSA90104.",
+    "note": "File manager validated end-to-end on host. Backups, catalog, console/logs next."
   },
-  "state": "Phase 1 complete. Phase 2 core backend done (host tests pass). HTTP API (libmicrohttpd/websrv model) + web dashboard validated end-to-end on host. PS5 title builds+signs into dist/PPSA90104/. Phase 3 (native Vulkan UI) blocked until SDK deps available.",
+  "state": "Phase 2 done + dashboard validated. Phase 5 management features: file manager write ops done (mkdir/write/rename/delete/copy). Backups, catalog, console/logs next.",
   "phases": [
-    { "id": 1, "name": "Research", "percent": 100, "state": "done",
-      "detail": "All 12 repos inspected. Runtime loading model confirmed: static link, bundled app content." },
-    { "id": 2, "name": "Core infrastructure", "percent": 100, "state": "done",
-      "detail": "JSON, sandboxed FS, instance state machine, process supervisor, server wrapper, instance manager — all host-tested." },
+    { "id": 1, "name": "Research", "percent": 100, "state": "done" },
+    { "id": 2, "name": "Core infrastructure", "percent": 100, "state": "done" },
     { "id": 3, "name": "Native UI", "percent": 0, "state": "todo",
-      "detail": "Blocked: pinned PS5_PayloadSDK fork (ps5platform) + RADV archive not present. Screen abstraction written so UI ports later." },
-    { "id": 4, "name": "Web dashboard", "percent": 80, "state": "done",
-      "detail": "web/index.html dashboard polls /api/instances. Host HTTP harness validates GET/POST start/stop/restart + index." },
-    { "id": 5, "name": "Management features", "percent": 0, "state": "todo",
-      "detail": "Console, files, config editor, backups, monitoring, catalog." },
-    { "id": 6, "name": "Testing", "percent": 40, "state": "active",
-      "detail": "Host unit tests + HTTP harness pass. PS5 tests deferred." }
+      "detail": "Blocked: pinned PS5_PayloadSDK fork + RADV archive not present." },
+    { "id": 4, "name": "Web dashboard", "percent": 85, "state": "done",
+      "detail": "Dashboard polls /api/instances; /api/fs write ops added and validated." },
+    { "id": 5, "name": "Management features", "percent": 30, "state": "active",
+      "detail": "File manager done. Backups, catalog, console/logs next." },
+    { "id": 6, "name": "Testing", "percent": 45, "state": "active",
+      "detail": "Unit tests + HTTP harness pass including file manager ops." }
   ],
   "todo": [
-    { "done": true,  "text": "Inspect ProsperoCraft server launch code and JVM options" },
-    { "done": true,  "text": "Inspect ps5-java25-homebrew runtime packaging and loader limits" },
-    { "done": true,  "text": "Inspect websrv (libmicrohttpd) routes and filesystem API" },
-    { "done": true,  "text": "Inspect Vulkan template, UI kit, BFpilot, ps5-exporter, DevTools" },
-    { "done": true,  "text": "Establish minimal buildable application (host + prospero cross-compile)" },
-    { "done": true,  "text": "Probe ELF loads via elfldr on real PS5 (deployment path verified)" },
-    { "done": true,  "text": "Build + sign PS5 title (dist/PPSA90104 installable)" },
-    { "done": true,  "text": "Shared backend: instance store, process supervisor, log ring buffer" },
-    { "done": true,  "text": "HTTP API and dashboard over websrv/libmicrohttpd" },
-    { "done": false, "text": "File manager with path sandbox and zip handling" },
-    { "done": false, "text": "Backups with world-save safety and verified restore" },
-    { "done": false, "text": "Server catalog: Mojang manifest, Paper API, Fabric meta, SHA-256 verify" },
-    { "done": false, "text": "Native Vulkan screens and controller navigation" },
-    { "done": false, "text": "Host integration tests with a real Minecraft server JAR" }
+    { "done": true,  "text": "Inspect all 12 reference repos" },
+    { "done": true,  "text": "Core backend: JSON, fs, instance, server, backend" },
+    { "done": true,  "text": "HTTP API + dashboard validated on host" },
+    { "done": true,  "text": "Build + sign PS5 title (dist/PPSA90104)" },
+    { "done": true,  "text": "File manager: mkdir, write, rename, delete, copy via /api/fs" },
+    { "done": false, "text": "Backups: zip world dirs, restore with save-aware pause, verify" },
+    { "done": false, "text": "Server catalog: Mojang manifest + Paper API + Fabric meta, SHA-256 verify" },
+    { "done": false, "text": "Console/logs: live tail of log ring buffer over HTTP" },
+    { "done": false, "text": "Host integration test with real Minecraft server JAR" }
   ],
-  "findings": [
-    "PS5 payload SDK maps __dlopen/__dlsym to a generated table of statically linked core libraries. Arbitrary ELF/JNI loading is unsupported, so libjvm.so cannot be dlopen'd at runtime.",
-    "The Java 25 runtime ships as bundled app content: assets/java25/lib/modules image plus lib/*.so. A title reads lib/modules via fopen and links JNI_CreateJavaVM at build time. This is the ProsperoCraft model and PS5Craft follows it.",
-    "PS5 title builds+signs into dist/PPSA90104/ (eboot.bin, sce_sys/param.json, sce_module/libc.prx).",
-    "elfldr at 192.168.2.15:9021 loaded the title ELF with no error. Console stdout goes to klog (not visible here).",
-    "FTP 2121 (ftpsrv.elf) is now consistently read-only on PASV; install via FTP unreliable on this console. Title folder ready for normal homebrew install.",
-    "HTTP API (libmicrohttpd) + dashboard validated end-to-end on host: GET /api/instances, POST start/stop/restart, index.html.",
-    "Platform shims added for libmicrohttpd: pipe2, tsearch/tfind/tdelete/twalk, gmtime_r, _Unwind_RaiseException/_Unwind_DeleteException stubs.",
-    "PS5_VulkanTemplate needs a pinned PS5_PayloadSDK fork (ps5platform) and a PS5_Vulkan RADV archive; neither is present here.",
-    "libmicrohttpd.a needs pipe2/tsearch which PS5 libc lacks; platform shims added. gmtime_r + _Unwind shims added."
-  ],
-  "console_note": "elfldr at 192.168.2.15:9021 is reachable and accepts ELF uploads. FTP 2121 is read-only (ftpsrv env issue) — title folder dist/PPSA90104/ is ready to install via the normal homebrew launcher workflow."
+  "findings": [],
+  "console_note": "elfldr at 192.168.2.15:9021 accepts ELF uploads. FTP 2121 read-only."
 }

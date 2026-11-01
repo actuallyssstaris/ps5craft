@@ -14,11 +14,23 @@ LDFLAGS :=
 HOST_SRCS := \
   core/json.cpp \
   core/fs.cpp \
+  core/zip.cpp \
+  core/backup.cpp \
   core/instance.cpp \
   core/server.cpp \
   core/backend.cpp \
   platform/process_host.cpp \
-  tests/test_main.cpp \
+  tests/test_main.cpp
+
+HTTP_HOST_SRCS := \
+  core/json.cpp \
+  core/fs.cpp \
+  core/zip.cpp \
+  core/backup.cpp \
+  core/instance.cpp \
+  core/server.cpp \
+  core/backend.cpp \
+  platform/process_host.cpp \
   tests/http_host.cpp
 
 HOST_OBJS := $(patsubst %.cpp,build/host/%.o,$(HOST_SRCS))

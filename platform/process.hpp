@@ -58,6 +58,9 @@ int process_drain(int pid, LogRing *log);
 /* Send signal to pid. Returns 0 on success. */
 int process_signal(int pid, int sig);
 
+/* Write bytes to the child's stdin. Returns bytes written, or -1 on error. */
+int process_write(int pid, const char *data, std::size_t len);
+
 /* Wait (non-blocking) for pid; fills result if exited. Returns 1 if reaped, 0 if still running, -1 on error. */
 int process_waitpid(int pid, int *status, int options, ProcessResult &result);
 

@@ -38,10 +38,26 @@ public:
 
     Json status_snapshot() const;
 
+    /* File manager operations (all sandboxed). */
+    bool fs_write(const std::string &relative, const std::string &data);
+    bool fs_mkdir(const std::string &relative);
+    bool fs_rename(const std::string &from, const std::string &to);
+    bool fs_remove(const std::string &relative);
+    bool fs_copy(const std::string &from, const std::string &to);
+
+    /* Backup operations. */
+    std::string backup_create(const std::string &instance_id, bool full = false);
+    std::vector<BackupInfo> backup_list(const std::string &instance_id) const;
+    bool backup_restore(const std::string &instance_id,
+                        const std::string &backup_id);
+    bool backup_remove(const std::string &instance_id,
+                       const std::string &backup_id);
+
     Sandbox &sandbox() { return sandbox_; }
 
 private:
     Sandbox sandbox_;
+    BackupManager backup_mgr_;
     mutable std::mutex mutex_;
     std::unordered_map<std::string, std::unique_ptr<Instance>> instances_;
     std::vector<std::string> order_; /* creation order */

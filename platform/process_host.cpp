@@ -16,7 +16,7 @@ namespace ps5craft {
 namespace {
 
 std::map<int, int> g_pipe_fd;   /* pid -> read end of its output pipe */
-std::map<int, pid_t> g_pid_map; /* not needed; pid is key */
+std::map<int, int> g_stdin_fd;  /* pid -> write end of its input pipe */
 
 void set_nonblock(int fd) {
     int flags = fcntl(fd, F_GETFL, 0);
@@ -64,7 +64,13 @@ int process_spawn(const std::vector<std::string> &argv,
                   const std::string &cwd,
                   ProcessResult &result) {
     int out_pipe[2] = {-1, -1};
+    int in_pipe[2] = {-1, -1};
     if (pipe(out_pipe) != 0) {
+        result.reason = "pipe failed";
+        return -1;
+    }
+    if (pipe(in_pipe) != 0) {
+        close(out_pipe[0]); close(out_pipe[1]);
         result.reason = "pipe failed";
         return -1;
     }
@@ -84,6 +90,10 @@ int process_spawn(const std::vector<std::string> &argv,
         if (dup2(out_pipe[1], STDERR_FILENO) < 0) _exit(127);
         close(out_pipe[1]);
 
+        close(in_pipe[1]);
+        if (dup2(in_pipe[0], STDIN_FILENO) < 0) _exit(127);
+        close(in_pipe[0]);
+
         if (!cwd.empty() && chdir(cwd.c_str()) != 0) _exit(126);
 
         std::vector<char *> cargv;
@@ -102,7 +112,9 @@ int process_spawn(const std::vector<std::string> &argv,
 
     /* parent */
     close(out_pipe[1]);
+    close(in_pipe[0]);
     g_pipe_fd[static_cast<int>(pid)] = out_pipe[0];
+    g_stdin_fd[static_cast<int>(pid)] = in_pipe[1];
     result.started_at = 0; /* set by caller */
     return static_cast<int>(pid);
 }
@@ -132,6 +144,23 @@ int process_signal(int pid, int sig) {
     return kill(pid, sig);
 }
 
+int process_write(int pid, const char *data, std::size_t len) {
+    auto it = g_stdin_fd.find(pid);
+    if (it == g_stdin_fd.end()) return -1;
+    int fd = it->second;
+    std::size_t written = 0;
+    while (written < len) {
+        ssize_t n = write(fd, data + written, len - written);
+        if (n < 0) {
+            if (errno == EINTR) continue;
+            if (errno == EAGAIN || errno == EWOULDBLOCK) break;
+            return static_cast<int>(written);
+        }
+        written += static_cast<std::size_t>(n);
+    }
+    return static_cast<int>(written);
+}
+
 int process_waitpid(int pid, int *status, int options, ProcessResult &result) {
     pid_t reaped = waitpid(pid, status, options);
     if (reaped < 0) {
@@ -146,6 +175,7 @@ int process_waitpid(int pid, int *status, int options, ProcessResult &result) {
     if (reaped == 0) return 0; /* still running (WNOHANG) */
     /* reaped */
     g_pipe_fd.erase(pid);
+    g_stdin_fd.erase(pid);
     if (WIFEXITED(*status)) {
         result.exit_code = WEXITSTATUS(*status);
         result.signaled = false;
