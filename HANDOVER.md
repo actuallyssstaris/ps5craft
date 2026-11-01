@@ -144,8 +144,7 @@ Demo data lives in `/tmp/ps5craft_demo`. The `Demo Server` instance uses `tests/
 
 ## Next steps in order
 
-1. **PS5 CA bundle** — ship `ca-bundle.crt` with the title and document the
-   path so HTTPS works on the console.
+1. **PS5 CA bundle** — shipped as `assets/ca-bundle.crt` (Mozilla bundle) and copied into `dist/PPSA90104/assets/` by the build. On console the operator places it at `<data root>/ca-bundle.crt` or sets `PS5CRAFT_CA_BUNDLE`. `main()` prints a notice if neither is present so catalog HTTPS failures are explicit, not silent.
 3. **Monitoring** — CPU/memory/storage, read-only, only values the console
    can measure.
 4. **Console verification** — install the signed title, run a Vanilla

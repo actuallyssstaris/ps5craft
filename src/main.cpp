@@ -22,6 +22,23 @@ static volatile sig_atomic_t g_running = 1;
 
 static void handle_signal(int) { g_running = 0; }
 
+/* The catalog downloads server software over HTTPS. libcurl needs a CA
+   bundle to verify certificates. On the host the system store is used
+   (http_ca_bundle() returns empty). On PS5 there is no system store, so the
+   operator must place assets/ca-bundle.crt (shipped in the title app folder)
+   into the data root, or set PS5CRAFT_CA_BUNDLE. Print a notice if neither is
+   present so the failure mode is clear instead of a silent TLS error. */
+static void note_ca_bundle(const std::string &data_root) {
+    if (getenv("PS5CRAFT_CA_BUNDLE")) return;
+    std::string path = data_root + "/ca-bundle.crt";
+    std::FILE *f = std::fopen(path.c_str(), "r");
+    if (f) { std::fclose(f); return; }
+    std::fprintf(stderr,
+        "NOTICE: no CA bundle configured (PS5CRAFT_CA_BUNDLE or %s).\n"
+        "        Catalog HTTPS downloads will fail until one is provided.\n"
+        "        Ship assets/ca-bundle.crt into the data root.\n", path.c_str());
+}
+
 int main() {
     std::signal(SIGINT, handle_signal);
     std::signal(SIGTERM, handle_signal);
@@ -33,6 +50,7 @@ int main() {
                                 : "/download0/PS5Craft";
 
     ps5craft::Backend backend(data_root);
+    note_ca_bundle(data_root);
     std::printf("PS5Craft backend ready at %s\n", data_root.c_str());
 
     /* Create a default instance on first run so the dashboard is not empty. */

@@ -18,7 +18,7 @@
     "ps5_native_binary": "built & signed; installable title folder at dist/PPSA90104.",
     "note": "Catalog UI done. Remaining: PS5 CA bundle + console run, monitoring, native Vulkan UI."
   },
-  "state": "Full catalog flow verified end to end on the host: SmartTube-style catalog UI (software/version picker, install panel, progress bar, honest errors) \u2192 Vanilla 1.21.11 downloaded, SHA-1 verified, installed, started to Done, clean stop exit 0. Paper (Fill v3 SHA-256) and Fabric (no published checksum) also verified via API. Remaining: PS5 CA bundle, monitoring, console run, native Vulkan UI.",
+  "state": "Full catalog flow verified end to end on the host: SmartTube-style catalog UI (software/version picker, install panel, progress bar, honest errors) \u2192 Vanilla 1.21.11 downloaded, SHA-1 verified, installed, started to Done, clean stop exit 0. Paper (Fill v3 SHA-256) and Fabric (no published checksum) also verified via API. Remaining: PS5 CA bundle, monitoring, console run, native Vulkan UI. CA bundle shipped at assets/ca-bundle.crt; main() prints a clear notice if PS5CRAFT_CA_BUNDLE/<data root>/ca-bundle.crt is absent. Install-path rule added: title files go under /data/homebrew/PPSA90104/ or /data/PlayKit/ (FTP is read-only).",
   "phases": [
     {
       "id": 1,
@@ -64,7 +64,7 @@
   ],
   "todo": [
     {
-      "done": false,
+      "done": true,
       "text": "Ship PS5 CA bundle (ca-bundle.crt) so catalog HTTPS works on console"
     },
     {
