@@ -18,7 +18,8 @@ HOST_SRCS := \
   core/server.cpp \
   core/backend.cpp \
   platform/process_host.cpp \
-  tests/test_main.cpp
+  tests/test_main.cpp \
+  tests/http_host.cpp
 
 HOST_OBJS := $(patsubst %.cpp,build/host/%.o,$(HOST_SRCS))
 
@@ -26,7 +27,11 @@ HOST_OBJS := $(patsubst %.cpp,build/host/%.o,$(HOST_SRCS))
 
 all: host
 
-host: build/host/ps5craft_test
+host: build/host/ps5craft_test build/host/ps5craft_http
+
+build/host/ps5craft_http: tests/http_host.cpp $(filter-out tests/test_main.cpp,$(HOST_OBJS))
+	@mkdir -p $(dir $@)
+	$(CXX) $(CXXFLAGS) tests/http_host.cpp $(filter-out tests/test_main.cpp,$(HOST_OBJS)) -o $@ $(LDFLAGS)
 
 build/host/%.o: %.cpp
 	@mkdir -p $(dir $@)

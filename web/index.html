@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PS5Craft — Minecraft Server Manager</title>
+<style>
+  :root {
+    --bg:#0b0d11; --panel:#141922; --line:#26303e; --fg:#e7edf5;
+    --dim:#8b98ab; --accent:#4cc2ff; --ok:#3ddc97; --warn:#ffc857; --bad:#ff6b6b;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);
+       font:15px/1.55 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;}
+  .wrap{max-width:1100px;margin:0 auto;padding:0 16px;}
+  header{display:flex;align-items:center;gap:12px;padding:18px 0;flex-wrap:wrap;}
+  h1{margin:0;font-size:20px;letter-spacing:-0.02em;}
+  .tag{color:var(--dim);font-size:13px;}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;margin-top:8px;}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;}
+  .card h2{margin:0 0 8px;font-size:15px;display:flex;justify-content:space-between;align-items:center;}
+  .badge{font-size:11px;padding:2px 8px;border-radius:999px;border:1px solid var(--line);color:var(--dim);}
+  .badge.ok{color:var(--ok);border-color:var(--ok);background:#0b2418;}
+  .badge.bad{color:var(--bad);border-color:var(--bad);background:#2d1618;}
+  .badge.stopped{color:var(--dim);}
+  .meta{color:var(--dim);font-size:12.5px;margin:6px 0;}
+  .row{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;}
+  button{border:none;border-radius:8px;padding:7px 14px;font-size:13px;cursor:pointer;
+         background:var(--line);color:var(--fg);border:1px solid #3a4555;}
+  button:hover{background:#3a4555;}
+  button.ok{background:#0e4f33;border-color:#1b7a54;}
+  button.ok:hover{background:#126a43;}
+  button.bad{background:#5b2424;border-color:#8a3636;color:#ffb3b3;}
+  button.bad:hover{background:#702d2d;}
+  button:disabled{opacity:0.5;cursor:not-allowed;}
+  .spinner{display:inline-block;width:14px;height:14px;border:2px solid var(--dim);border-top-color:transparent;
+           border-radius:50%;spin:spin 1s linear infinite;vertical-align:middle;}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .empty{color:var(--dim);padding:26px;text-align:center;}
+  .note{font-size:12.5px;color:var(--dim);margin-top:10px;border-top:1px solid var(--line);padding-top:10px;}
+  .api{font-size:12px;color:var(--dim);background:#0f141b;border:1px solid var(--line);border-radius:8px;padding:10px;margin-top:10px;overflow:auto;max-height:200px;}
+  .api b{color:var(--accent);}
+  .fatal{color:var(--bad);background:#2d1618;border:1px solid var(--bad);border-radius:8px;padding:12px;margin-top:10px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>PS5Craft</h1>
+    <span class="tag">Minecraft Java server manager</span>
+  </header>
+
+  <div id="error" class="fatal" style="display:none"></div>
+
+  <div class="grid" id="grid">
+    <div class="card">
+      <h2>Servers <span id="count" class="badge">0</span></h2>
+      <div class="empty" id="empty">No server instances yet.</div>
+      <div id="instances"></div>
+    </div>
+  </div>
+
+  <div class="note">
+    Polls <code>/api/instances</code> every 2s from the shared backend. Native UI and web dashboard read the same state.
+  </div>
+</div>
+
+<script>
+const BASE = '';
+let failing = 0;
+
+function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+
+function badgeClass(state){
+  switch(state){
+    case 'running': return 'ok';
+    case 'crashed': case 'error': return 'bad';
+    default: return 'stopped';
+  }
+}
+
+function render(servers){
+  const grid=document.getElementById('instances');
+  const empty=document.getElementById('empty');
+  const count=document.getElementById('count');
+  count.textContent=servers.length;
+  if(servers.length===0){empty.style.display='block';grid.innerHTML='';return;}
+  empty.style.display='none';
+  grid.innerHTML=servers.map(s=>{
+    const st=s.state||'stopped';
+    const bc=badgeClass(st);
+    return `<div class="card">
+      <h2>${esc(s.name||'unnamed')} <span class="badge ${bc}">${esc(st)}</span></h2>
+      <div class="meta">
+        <div>${esc(s.software||'?')} &middot; ${esc(s.version||'?')} &middot; pid ${s.pid||'-'}</div>
+        ${s.exit_code!==undefined && s.exit_code!==-1 ? `<div>exit ${esc(s.exit_code)}${s.exit_reason?' &mdash; '+esc(s.exit_reason):''}</div>` : ''}
+        ${s.uptime_ms!==undefined ? `<div>up ${Math.floor(s.uptime_ms/1000)}s</div>` : ''}
+      </div>
+      <div class="row">
+        <button class="ok" onclick="act('${esc(s.id)}','start')" ${st!=='stopped'&&st!=='crashed'&&st!=='error'?'disabled':''}>Start</button>
+        <button class="bad" onclick="act('${esc(s.id)}','stop')" ${st!=='running'&&st!=='starting'&&st!=='stopping'?'disabled':''}>Stop</button>
+        <button onclick="act('${esc(s.id)}','restart')" ${st==='running'||st==='crashed'||st==='error'?'':'disabled'}>Restart</button>
+      </div>
+      <div class="meta" style="margin-top:8px">id: <code style="font-size:11px">${esc(s.id)}</code></div>
+      <div class="api">${esc(JSON.stringify(s,null,2))}</div>
+    </div>`;
+  }).join('');
+}
+
+async function act(id,action){
+  const btn=document.querySelector(`button[onclick*="${id}"]`);
+  try{
+    const r=await fetch(`${BASE}/api/instances/${id}/${action}`,{method:'POST'});
+    if(!r.ok) throw new Error('HTTP '+r.status);
+  }catch(e){
+    showError('Failed to '+action+' server: '+e.message);
+  }
+}
+
+function showError(m){
+  const el=document.getElementById('error');
+  el.textContent=m; el.style.display='block';
+}
+
+async function load(){
+  try{
+    const r=await fetch(`${BASE}/api/instances`);
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    const d=await r.json();
+    failing=0;
+    document.getElementById('error').style.display='none';
+    render(d.instances||[]);
+  }catch(e){
+    failing++;
+    if(failing>3) showError('Cannot reach API: '+e.message);
+  }
+}
+
+load();
+setInterval(load,2000);
+</script>
+</body>
+</html>
