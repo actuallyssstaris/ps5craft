@@ -4,7 +4,7 @@
 
 Repo: `https://github.com/actuallyssstaris/ps5craft` (public, branch `main`)
 Title ID: `PPSA90104`
-Overall: **~72%**. Core backend, real process supervision, backups, console/logs, persistence, the dashboard and the server software catalog are implemented and host-tested. PS5 title builds + signs into `dist/PPSA90104/`.
+Overall: **~78%**. Core backend, real process supervision, backups, console/logs, persistence, the dashboard, the server catalog API and the SmartTube-style catalog UI (software/version picker, install with progress, hash verification) are implemented and host-tested. PS5 title builds + signs into `dist/PPSA90104/`.
 
 Live pages from the development device:
 - Dashboard: `http://192.0.0.4:8080/` (host build of the same HTTP API)
@@ -144,10 +144,7 @@ Demo data lives in `/tmp/ps5craft_demo`. The `Demo Server` instance uses `tests/
 
 ## Next steps in order
 
-1. **Catalog UI** — software + version picker in the dashboard, install
-   button, progress bar, honest errors. The API already returns everything
-   the page needs.
-2. **PS5 CA bundle** — ship `ca-bundle.crt` with the title and document the
+1. **PS5 CA bundle** — ship `ca-bundle.crt` with the title and document the
    path so HTTPS works on the console.
 3. **Monitoring** — CPU/memory/storage, read-only, only values the console
    can measure.

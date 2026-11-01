@@ -67,16 +67,22 @@ bool vanilla_versions(std::vector<CatalogVersion> &out, std::string &error) {
         error = "unexpected Mojang manifest";
         return false;
     }
+    int shown = 0;
+    /* "latest" first: the most common choice, always resolves to the newest
+       release via the manifest. */
+    out.push_back({"latest", "release", manifest["latest"]["release"].as_string(), true});
     for (const Json &v : list.items()) {
+        /* Show releases only; snapshots exist but aren't what most users want. */
+        if (v["type"].as_string() != "release") continue;
+        if (shown >= 12) break; /* keep the chip shelf scannable */
         CatalogVersion cv;
         cv.id = v["id"].as_string();
         cv.channel = v["type"].as_string("release");
         cv.released = v["releaseTime"].as_string();
-        /* Snapshots are installable, but they are not what "supported" means
-           here; the dashboard marks them. */
         cv.installable = true;
         if (cv.id.empty()) continue;
         out.push_back(cv);
+        ++shown;
     }
     return true;
 }
