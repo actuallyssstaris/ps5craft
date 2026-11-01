@@ -1,8 +1,8 @@
 {
   "project": "PS5Craft",
   "tagline": "PS5 Minecraft Java server manager",
-  "updated": "2026-11-01T22:45:00Z",
-  "overall_percent": 86,
+  "updated": "2026-11-01T23:10:00Z",
+  "overall_percent": 88,
   "links": [
     {
       "label": "Live dashboard",
@@ -16,10 +16,10 @@
   "eta": {
     "core_host_verified": "done",
     "ps5_native_binary": "Built and signed in GitHub Actions (workflow `PS5 title`), artifact `PPSA90104`.",
-    "note": "Version 1 done. Remaining: console verification (install dist/PPSA90104 under /data/homebrew/, run Vanilla 26.3 on bundled Java 25). Native Vulkan UI is version 2.",
-    "console_access": "blocked: PS5 console unreachable from this host"
+    "note": "Title ready for console deploy. deploy.sh documents manual steps. Next: console verification, then native Vulkan UI (v2).",
+    "console_access": "FTP 2121 open but read-only; elfldr 9021 down; manual copy needed"
   },
-  "state": "Version 1 feature complete on the host and in GitHub Actions: lifecycle, console commands, file manager with upload, backups, catalog install with checksum verification, measured monitoring on /api/system. PS5 title built + signed (dist/PPSA90104/, eboot.bin sha256 c37635f7...). Console verification not yet executed \u2014 the PS5 console is not reachable from this host (elfldr 192.168.2.15:9021, FTP 2121, Remote Play all unreachable). Title artifact and runbook are ready; console verification requires console access.",
+  "state": "Version 1 feature complete and host-verified. PS5 title built + signed in GitHub Actions (dist/PPSA90104/, eboot.bin sha256 c37635f7...). deploy.sh added for console installation. Console FTP 2121 is open but read-only (ftpsrv.elf v0.21.1); elfldr 9021 is down. Manual copy of dist/PPSA90104/ to /data/homebrew/PPSA90104/ required via homebrew launcher.",
   "phases": [
     {
       "id": 1,
