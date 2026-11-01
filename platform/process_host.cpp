@@ -24,6 +24,28 @@ void set_nonblock(int fd) {
     fcntl(fd, F_SETFL, flags | O_NONBLOCK);
 }
 
+/* execve() does not search PATH. Resolve a bare command name first, using the
+   PATH we are about to hand the child. */
+std::string resolve_executable(const std::string &name,
+                               const std::vector<std::string> &env) {
+    if (name.empty() || name.find('/') != std::string::npos) return name;
+    std::string path = "/usr/bin:/bin";
+    for (const auto &e : env) {
+        if (e.compare(0, 5, "PATH=") == 0) { path = e.substr(5); break; }
+    }
+    std::size_t start = 0;
+    while (start <= path.size()) {
+        std::size_t end = path.find(':', start);
+        if (end == std::string::npos) end = path.size();
+        std::string dir = path.substr(start, end - start);
+        if (dir.empty()) dir = ".";
+        std::string candidate = dir + "/" + name;
+        if (access(candidate.c_str(), X_OK) == 0) return candidate;
+        start = end + 1;
+    }
+    return name;
+}
+
 } // namespace
 
 LogRing::LogRing(std::size_t max_bytes) : max_bytes_(max_bytes) {}
@@ -106,7 +128,8 @@ int process_spawn(const std::vector<std::string> &argv,
         for (const auto &e : env) cenv.push_back(const_cast<char *>(e.c_str()));
         cenv.push_back(nullptr);
 
-        execve(argv[0].c_str(), cargv.data(), cenv.data());
+        const std::string exe = resolve_executable(argv[0], env);
+        execve(exe.c_str(), cargv.data(), cenv.data());
         _exit(127);
     }
 

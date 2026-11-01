@@ -27,7 +27,7 @@ std::int64_t now_ms() {
 Server::Server(Sandbox &sandbox, Instance &instance, LogRing &log)
     : sandbox_(sandbox), instance_(instance), log_(log) {}
 
-std::vector<std::string> Server::build_command() const {
+std::vector<std::string> Server::build_command(const std::string &workdir_abs) const {
     const auto &cfg = instance_.config();
     std::vector<std::string> cmd;
     cmd.push_back(cfg.java_path.empty() ? "java" : cfg.java_path);
@@ -37,10 +37,10 @@ std::vector<std::string> Server::build_command() const {
     cmd.push_back("-XX:ActiveProcessorCount=2");
     cmd.push_back("-Xshare:off");
     cmd.push_back("-Dlog4j2.disableJmx=true");
-    cmd.push_back("-Djava.io.tmpdir=" + cfg.workdir + "/tmp");
-    cmd.push_back("-Duser.home=" + cfg.workdir);
-    cmd.push_back("-Duser.dir=" + cfg.workdir);
-    cmd.push_back("-Dps5.mc.workdir=" + cfg.workdir);
+    cmd.push_back("-Djava.io.tmpdir=" + workdir_abs + "/tmp");
+    cmd.push_back("-Duser.home=" + workdir_abs);
+    cmd.push_back("-Duser.dir=" + workdir_abs);
+    cmd.push_back("-Dps5.mc.workdir=" + workdir_abs);
     for (const auto &a : cfg.jvm_args) cmd.push_back(a);
     cmd.push_back("-jar");
     cmd.push_back(cfg.jar_path);
@@ -53,20 +53,23 @@ int Server::start() {
     if (pid_ > 0 && !exited_) return pid_;
 
     const auto &cfg = instance_.config();
-    auto argv = build_command();
 
-    std::vector<std::string> env = {
-        "PATH=/usr/bin:/bin",
-        "HOME=" + cfg.workdir,
-        "USER=ps5craft",
-        "LC_ALL=C",
-    };
-
+    /* The JVM rejects relative -Duser.dir/-Djava.io.tmpdir values, so resolve
+       the instance directory first and use the absolute path in the command. */
     std::string cwd;
     if (!sandbox_.resolve(cfg.workdir, cwd)) {
         exit_reason_ = "invalid workdir";
         return -1;
     }
+    sandbox_.mkdirs(cfg.workdir + "/tmp");
+
+    auto argv = build_command(cwd);
+    std::vector<std::string> env = {
+        "PATH=/usr/bin:/bin",
+        "HOME=" + cwd,
+        "USER=ps5craft",
+        "LC_ALL=C",
+    };
 
     ProcessResult result;
     int pid = process_spawn(argv, env, cwd, result);

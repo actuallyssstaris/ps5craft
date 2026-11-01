@@ -554,7 +554,9 @@
             <button class="btn sm" id="btn-fs-up">Up</button>
             <button class="btn sm" id="btn-fs-refresh">Refresh</button>
             <button class="btn sm" id="btn-fs-mkdir">New folder</button>
-            <button class="btn sm primary" id="btn-fs-write">New file</button>
+            <button class="btn sm" id="btn-fs-write">New file</button>
+            <button class="btn sm primary" id="btn-fs-upload">Upload</button>
+            <input type="file" id="fs-upload-input" hidden>
           </div>
           <div class="table-wrap">
             <table>
@@ -1304,6 +1306,27 @@ $("#btn-fs-write").addEventListener("click", async () => {
               { method: "POST", body: "" });
     openEditor(joinPath(state.fsPath, name));
   } catch (e) { toast(e.message, true); }
+});
+$("#btn-fs-upload").addEventListener("click", () => $("#fs-upload-input").click());
+$("#fs-upload-input").addEventListener("change", async (ev) => {
+  const inst = sel();
+  const file = ev.target.files && ev.target.files[0];
+  ev.target.value = "";
+  if (!inst || !file) return;
+  if (file.size > 256 * 1024 * 1024) {
+    toast("File is larger than the 256 MiB limit", true);
+    return;
+  }
+  const target = joinPath(state.fsPath, file.name);
+  toast("Uploading " + file.name + "…");
+  try {
+    await api("/api/fs/" + encPath("instances/" + inst.id + "/" + target) + "?action=upload",
+              { method: "POST", body: file });
+    toast("Uploaded " + file.name);
+    loadFiles(state.fsPath);
+  } catch (e) {
+    toast(e.message, true);
+  }
 });
 $("#btn-backup-world").addEventListener("click", () => createBackup(false));
 $("#btn-backup-full").addEventListener("click", () => createBackup(true));

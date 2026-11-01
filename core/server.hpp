@@ -19,8 +19,9 @@ class Server {
 public:
     Server(Sandbox &sandbox, Instance &instance, LogRing &log);
 
-    /* Build the JVM command line from instance config. */
-    std::vector<std::string> build_command() const;
+    /* Build the JVM command line from instance config. workdir_abs must be
+       the absolute instance directory. */
+    std::vector<std::string> build_command(const std::string &workdir_abs) const;
 
     /* Start: spawn the JVM process. Returns pid, or -1 on failure. */
     int start();

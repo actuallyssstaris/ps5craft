@@ -28,7 +28,8 @@ Live pages from the development device:
 - `GET /api/instances`, `POST /api/instances`, `GET/DELETE /api/instances/<id>`
 - `POST /api/instances/<id>/start|stop|restart|eula|command`
 - `GET /api/instances/<id>/logs`
-- `GET /api/fs/<path>`, `POST /api/fs/<path>?action=write|mkdir|rename|delete|copy`
+- `GET /api/fs/<path>`, `POST /api/fs/<path>?action=write|upload|mkdir|rename|delete|copy`
+  (`upload` takes a raw body up to 256 MiB; verified byte-exact with a 56 MB JAR)
 - `GET /api/backup/<id>`, `POST /api/backup/<id>/create?full=1`, `POST /api/backup/<id>/<backup>/restore|delete`, `GET /api/backup/<id>/<backup>/download`
 - `GET /api/system` — volume capacity + per-instance directory sizes (30 s cache)
 - `GET /api/status`; CORS; MHD query args; POST body accumulation fixed
@@ -41,6 +42,29 @@ Live pages from the development device:
 - `build/host/ps5craft_host` — real `main.cpp` + `http_api.cpp` on libmicrohttpd
 
 **PS5 title**: compiles, links, signs into `dist/PPSA90104/`. elfldr at `192.168.2.15:9021` loads ELF payloads.
+
+## Real Minecraft run (host, 2026-11-01)
+
+Vanilla **1.21.11** (Java 21) was run end to end:
+
+- Server JAR fetched from Mojang, SHA-1 verified, uploaded through
+  `POST /api/fs/...?action=upload` (56,327,581 bytes, hash matched on disk).
+- Start reached `Done (12.049s)!`, console command `list` answered in the log.
+- World backup taken while running (2.27 MB ZIP), then restored while stopped.
+- `stop` produced a clean shutdown and exit code 0; TCP 25565 accepted a
+  connection.
+
+Two bugs found and fixed by this run:
+
+1. `execve` does not search `PATH`, so a bare `java` failed with exit 127.
+   The supervisor now resolves the executable against the child's `PATH`.
+2. The JVM rejects relative `-Duser.dir` / `-Djava.io.tmpdir`; the instance
+   directory is resolved to an absolute path before building the command,
+   and `tmp/` is created before spawn.
+
+Minecraft **26.3** requires Java **25** (`javaVersion.majorVersion: 25`).
+The host has Java 21, which is why the real run uses 1.21.11. The PS5 title
+bundles Java 25, so it can run 26.3; the catalog must carry this mapping.
 
 ## Run the host build
 

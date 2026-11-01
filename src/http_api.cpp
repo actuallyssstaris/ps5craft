@@ -23,7 +23,12 @@ struct MHD_Daemon *g_daemon = nullptr;
 struct conn_ctx {
     std::string body;
     bool body_done = false;
+    bool too_large = false;
 };
+
+/* Uploads are buffered in memory; cap them so a bad request cannot eat the
+   console's RAM. A Minecraft server JAR fits comfortably. */
+constexpr std::size_t kMaxUploadBytes = 256u * 1024u * 1024u;
 
 void add_cors(struct MHD_Response *resp) {
     MHD_add_response_header(resp, MHD_HTTP_HEADER_ACCESS_CONTROL_ALLOW_ORIGIN, "*");
@@ -135,13 +140,28 @@ extern "C" enum MHD_Result api_handler(void *cls, struct MHD_Connection *conn,
             return MHD_YES; /* headers only so far */
         }
         if (upload_data && *upload_data_size > 0) {
-            ctx->body.append(upload_data, *upload_data_size);
+            if (!ctx->too_large &&
+                ctx->body.size() + *upload_data_size > kMaxUploadBytes) {
+                ctx->too_large = true;
+                ctx->body.clear();
+                ctx->body.shrink_to_fit();
+            }
+            if (!ctx->too_large) ctx->body.append(upload_data, *upload_data_size);
             *upload_data_size = 0;
             return MHD_YES;
         }
         if (!ctx->body_done) {
             finish_body(con_cls);
             return MHD_YES;
+        }
+    }
+
+    if (std::strcmp(method, "POST") == 0) {
+        conn_ctx *ctx = static_cast<conn_ctx *>(*con_cls);
+        if (ctx && ctx->too_large) {
+            ps5craft::Json err = ps5craft::Json::object();
+            err.set("error", "upload too large; limit is 256 MiB");
+            return send_json(conn, MHD_HTTP_CONTENT_TOO_LARGE, err);
         }
     }
 
@@ -332,7 +352,7 @@ extern "C" enum MHD_Result api_handler(void *cls, struct MHD_Connection *conn,
 
         if (std::strcmp(method, "POST") == 0 && parts.size() >= 3) {
             std::string action = query_param(conn, "action");
-            if (action == "write") {
+            if (action == "write" || action == "upload") {
                 std::string data = post_body(con_cls);
                 if (!g_backend->fs_write(relative, data)) {
                     ps5craft::Json err = ps5craft::Json::object();

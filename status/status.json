@@ -1,8 +1,8 @@
 {
   "project": "PS5Craft",
   "tagline": "PS5 Minecraft Java server manager",
-  "updated": "2026-11-01T15:10:00Z",
-  "overall_percent": 62,
+  "updated": "2026-11-01T15:40:00Z",
+  "overall_percent": 70,
   "links": [
     {
       "label": "Live dashboard",
@@ -16,9 +16,9 @@
   "eta": {
     "core_host_verified": "done",
     "ps5_native_binary": "built & signed; installable title folder at dist/PPSA90104.",
-    "note": "Real process supervisor, backups, console/log tail, persistence and a new dashboard are done and host-tested. Catalog + real Minecraft run next."
+    "note": "Core host-verified with a real server. Remaining: catalog with SHA-256, monitoring, console test, native Vulkan UI."
   },
-  "state": "Phase 2 done. Management backend drives real processes: start/stop/restart with graceful stop, log capture, stdin commands, backups (create/list/restore/delete/download) and instance persistence. Dashboard rebuilt on the PS5SX2 visual language with Pelican's layout: summary tiles, status-striped server cards, real per-instance disk usage, grid/table views, pill tabs and console-first server page.",
+  "state": "Real Minecraft verified: Vanilla 1.21.11 downloaded from Mojang, uploaded through the dashboard (56 MB, SHA-1 match), started to \"Done (12.049s)\", answered a console command, backed up the live world, restored it and stopped with exit 0. Binary upload works. Catalog + TLS client next.",
   "phases": [
     {
       "id": 1,
@@ -50,16 +50,16 @@
     {
       "id": 5,
       "name": "Management features",
-      "percent": 75,
+      "percent": 85,
       "state": "active",
-      "detail": "Done: lifecycle, logs, console commands, file manager, backups, persistence, software gating. Pending: server catalog with SHA-256 verification, monitoring."
+      "detail": "Done: lifecycle, logs, console commands, file manager with binary upload, backups, persistence, software gating. Pending: server catalog with SHA-256 verification, monitoring."
     },
     {
       "id": 6,
       "name": "Testing",
-      "percent": 65,
+      "percent": 80,
       "state": "active",
-      "detail": "Unit tests + HTTP end-to-end pass on host. Pending: real Minecraft JAR run and console verification."
+      "detail": "Unit tests pass; full cycle with real Vanilla 1.21.11 on host passes. Pending: catalog tests, PS5 console verification."
     }
   ],
   "todo": [
@@ -110,6 +110,14 @@
     {
       "done": false,
       "text": "Monitoring: CPU/memory/storage read-only"
+    },
+    {
+      "done": true,
+      "text": "Binary file upload through the dashboard"
+    },
+    {
+      "done": true,
+      "text": "Real Vanilla 1.21.11 run on host: start, command, backup, restore, stop"
     },
     {
       "done": false,
