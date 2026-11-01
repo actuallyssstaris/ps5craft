@@ -6,7 +6,6 @@
 #include <cstring>
 #include <ifaddrs.h>
 #include <sstream>
-#include <sys/sysinfo.h>
 #include <sys/time.h>
 #include <time.h>
 #include <unistd.h>
