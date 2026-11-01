@@ -1,50 +1,129 @@
 {
   "project": "PS5Craft",
   "tagline": "PS5 Minecraft Java server manager",
-  "updated": "2026-11-01T14:30:00Z",
+  "updated": "2026-11-01T15:10:00Z",
   "overall_percent": 62,
   "links": [
-    { "label": "Live dashboard", "url": "http://192.0.0.4:8080/" },
-    { "label": "GitHub", "url": "https://github.com/actuallyssstaris/ps5craft" }
+    {
+      "label": "Live dashboard",
+      "url": "http://192.0.0.4:8080/"
+    },
+    {
+      "label": "GitHub",
+      "url": "https://github.com/actuallyssstaris/ps5craft"
+    }
   ],
   "eta": {
     "core_host_verified": "done",
     "ps5_native_binary": "built & signed; installable title folder at dist/PPSA90104.",
     "note": "Real process supervisor, backups, console/log tail, persistence and a new dashboard are done and host-tested. Catalog + real Minecraft run next."
   },
-  "state": "Phase 2 done. Management backend now drives real processes: start/stop/restart with graceful stop, log capture, stdin commands, backups (create/list/restore/delete/download) and instance persistence. Dashboard redesigned and hosted on the LAN.",
+  "state": "Phase 2 done. Management backend drives real processes: start/stop/restart with graceful stop, log capture, stdin commands, backups (create/list/restore/delete/download) and instance persistence. Dashboard rebuilt on the PS5SX2 visual language with Pelican's layout: summary tiles, status-striped server cards, real per-instance disk usage, grid/table views, pill tabs and console-first server page.",
   "phases": [
-    { "id": 1, "name": "Research", "percent": 100, "state": "done" },
-    { "id": 2, "name": "Core infrastructure", "percent": 100, "state": "done",
-      "detail": "JSON, sandboxed FS, ZIP, instances, process supervisor, server wrapper, registry persistence." },
-    { "id": 3, "name": "Native UI", "percent": 0, "state": "todo",
-      "detail": "Blocked: pinned PS5_PayloadSDK fork + RADV archive not present on this host." },
-    { "id": 4, "name": "Web dashboard", "percent": 95, "state": "done",
-      "detail": "Sidebar + server detail layout, console log, command input, file manager, backups. Served by the same HTTP API as the PS5 title." },
-    { "id": 5, "name": "Management features", "percent": 75, "state": "active",
-      "detail": "Done: lifecycle, logs, console commands, file manager, backups, persistence, software gating. Pending: server catalog with SHA-256 verification, monitoring." },
-    { "id": 6, "name": "Testing", "percent": 65, "state": "active",
-      "detail": "Unit tests + HTTP end-to-end pass on host. Pending: real Minecraft JAR run and console verification." }
+    {
+      "id": 1,
+      "name": "Research",
+      "percent": 100,
+      "state": "done"
+    },
+    {
+      "id": 2,
+      "name": "Core infrastructure",
+      "percent": 100,
+      "state": "done",
+      "detail": "JSON, sandboxed FS, ZIP, instances, process supervisor, server wrapper, registry persistence."
+    },
+    {
+      "id": 3,
+      "name": "Native UI",
+      "percent": 0,
+      "state": "todo",
+      "detail": "Blocked: pinned PS5_PayloadSDK fork + RADV archive not present on this host."
+    },
+    {
+      "id": 4,
+      "name": "Web dashboard",
+      "percent": 95,
+      "state": "done",
+      "detail": "Sidebar + server detail layout, console log, command input, file manager, backups. Served by the same HTTP API as the PS5 title."
+    },
+    {
+      "id": 5,
+      "name": "Management features",
+      "percent": 75,
+      "state": "active",
+      "detail": "Done: lifecycle, logs, console commands, file manager, backups, persistence, software gating. Pending: server catalog with SHA-256 verification, monitoring."
+    },
+    {
+      "id": 6,
+      "name": "Testing",
+      "percent": 65,
+      "state": "active",
+      "detail": "Unit tests + HTTP end-to-end pass on host. Pending: real Minecraft JAR run and console verification."
+    }
   ],
   "todo": [
-    { "done": true,  "text": "Inspect all 12 reference repos" },
-    { "done": true,  "text": "Core backend: JSON, fs, instance, server, backend" },
-    { "done": true,  "text": "Real process supervisor: spawn, drain logs, graceful stop, kill ladder" },
-    { "done": true,  "text": "HTTP API + dashboard validated on host" },
-    { "done": true,  "text": "Build + sign PS5 title (dist/PPSA90104)" },
-    { "done": true,  "text": "File manager: mkdir, write, rename, delete, copy via /api/fs" },
-    { "done": true,  "text": "Backups: ZIP create/list/restore/delete/download, save-aware, manifest" },
-    { "done": true,  "text": "Console/log tail and stdin command endpoint" },
-    { "done": true,  "text": "Instance registry persistence (instances.json)" },
-    { "done": true,  "text": "Redesigned dashboard with sidebar, logs, files, backups" },
-    { "done": false, "text": "Server catalog: Mojang manifest + Paper API + Fabric meta, SHA-256 verify" },
-    { "done": false, "text": "Monitoring: CPU/memory/storage read-only" },
-    { "done": false, "text": "Host integration test with a real Minecraft server JAR" },
-    { "done": false, "text": "Console verification of the signed title" }
+    {
+      "done": true,
+      "text": "Inspect all 12 reference repos"
+    },
+    {
+      "done": true,
+      "text": "Core backend: JSON, fs, instance, server, backend"
+    },
+    {
+      "done": true,
+      "text": "Real process supervisor: spawn, drain logs, graceful stop, kill ladder"
+    },
+    {
+      "done": true,
+      "text": "HTTP API + dashboard validated on host"
+    },
+    {
+      "done": true,
+      "text": "Build + sign PS5 title (dist/PPSA90104)"
+    },
+    {
+      "done": true,
+      "text": "File manager: mkdir, write, rename, delete, copy via /api/fs"
+    },
+    {
+      "done": true,
+      "text": "Backups: ZIP create/list/restore/delete/download, save-aware, manifest"
+    },
+    {
+      "done": true,
+      "text": "Console/log tail and stdin command endpoint"
+    },
+    {
+      "done": true,
+      "text": "Instance registry persistence (instances.json)"
+    },
+    {
+      "done": true,
+      "text": "Dashboard rebuilt: PS5SX2 palette + Pelican layout, disk usage, grid/table"
+    },
+    {
+      "done": false,
+      "text": "Server catalog: Mojang manifest + Paper API + Fabric meta, SHA-256 verify"
+    },
+    {
+      "done": false,
+      "text": "Monitoring: CPU/memory/storage read-only"
+    },
+    {
+      "done": false,
+      "text": "Host integration test with a real Minecraft server JAR"
+    },
+    {
+      "done": false,
+      "text": "Console verification of the signed title"
+    }
   ],
   "findings": [
     "Only Vanilla, Fabric and Paper are offered; other server types stay disabled until tested on the console.",
-    "One JVM per process: parallel instances need separate processes."
+    "One JVM per process: parallel instances need separate processes.",
+    "Resource bars show measured values only: per-instance directory size and volume capacity."
   ],
   "console_note": "elfldr at 192.168.2.15:9021 accepts ELF uploads. FTP 2121 read-only."
 }

@@ -8,6 +8,7 @@
 #include <dirent.h>
 #include <fcntl.h>
 #include <sys/stat.h>
+#include <sys/statvfs.h>
 #include <unistd.h>
 
 namespace ps5craft {
@@ -92,6 +93,16 @@ std::int64_t fs_mtime(const std::string &path) {
     struct stat info {};
     if (stat(path.c_str(), &info) != 0) return 0;
     return static_cast<std::int64_t>(info.st_mtime);
+}
+
+bool fs_disk_space(const std::string &path, DiskSpace &out) {
+    struct statvfs info {};
+    if (statvfs(path.empty() ? "/" : path.c_str(), &info) != 0) return false;
+    out.total = static_cast<std::uint64_t>(info.f_frsize) *
+                static_cast<std::uint64_t>(info.f_blocks);
+    out.free = static_cast<std::uint64_t>(info.f_frsize) *
+               static_cast<std::uint64_t>(info.f_bavail);
+    return true;
 }
 
 bool fs_remove_tree(const std::string &path) {

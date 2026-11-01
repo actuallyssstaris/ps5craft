@@ -401,6 +401,28 @@ extern "C" enum MHD_Result api_handler(void *cls, struct MHD_Connection *conn,
         }
     }
 
+    /* /api/system: read-only host capacity. */
+    if (parts.size() == 2 && parts[0] == "api" && parts[1] == "system" &&
+        std::strcmp(method, "GET") == 0) {
+        ps5craft::DiskSpace disk;
+        ps5craft::Json out = ps5craft::Json::object();
+        if (ps5craft::fs_disk_space(g_backend->data_root(), disk)) {
+            ps5craft::Json d = ps5craft::Json::object();
+            d.set("total", static_cast<double>(disk.total));
+            d.set("free", static_cast<double>(disk.free));
+            d.set("used", static_cast<double>(disk.total - disk.free));
+            out.set("disk", d);
+        }
+        ps5craft::Json sizes = ps5craft::Json::object();
+        for (const auto &snap : g_backend->list_snapshots()) {
+            const std::string id = snap["id"].as_string("");
+            if (!id.empty())
+                sizes.set(id, static_cast<double>(g_backend->instance_disk_bytes(id)));
+        }
+        out.set("instances", sizes);
+        return send_json(conn, MHD_HTTP_OK, out);
+    }
+
     /* /api/status */
     if (parts.size() == 2 && parts[0] == "api" && parts[1] == "status" &&
         std::strcmp(method, "GET") == 0) {
@@ -497,7 +519,7 @@ extern "C" enum MHD_Result api_handler(void *cls, struct MHD_Connection *conn,
                                 "application/zip");
         char disp[256];
         std::snprintf(disp, sizeof disp, "attachment; filename=\"%s.zip\"",
-                      parts[3]);
+                      parts[3].c_str());
         MHD_add_response_header(resp, "Content-Disposition", disp);
         enum MHD_Result ret = MHD_queue_response(conn, MHD_HTTP_OK, resp);
         MHD_destroy_response(resp);

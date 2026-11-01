@@ -3,325 +3,598 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b0b22">
 <title>PS5Craft</title>
 <style>
   :root {
-    --bg: #080b10;
-    --bg-soft: #0d1219;
-    --panel: #121923;
-    --panel-2: #172130;
-    --line: #22303f;
-    --line-soft: #1a2532;
-    --text: #e8eef5;
-    --muted: #8fa0b3;
-    --accent: #54c6ff;
-    --accent-soft: #0d2f43;
-    --ok: #46d17a;
-    --warn: #e5b45a;
-    --bad: #ff6b62;
-    --radius: 12px;
+    --bg-top: #08091a;
+    --bg-mid: #0e0e28;
+    --bg-bottom: #030307;
+    --house: 140, 107, 255;
+    --text: #ffffff;
+    --dim: #b8b0d1;
+    --faint: #8c87a8;
+    --card: rgba(255, 255, 255, 0.055);
+    --card-2: rgba(255, 255, 255, 0.085);
+    --card-line: rgba(255, 255, 255, 0.09);
+    --pill: rgba(255, 255, 255, 0.12);
+    --accent: rgb(186, 166, 255);
+    --ink: #120f29;
+    --ok: #5cf2a0;
+    --warn: #ffcf7a;
+    --bad: #ff6b6b;
+    --radius: 18px;
   }
-  * { box-sizing: border-box; }
-  html, body { height: 100%; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; min-height: 100%; }
   body {
-    margin: 0;
-    background: radial-gradient(1200px 600px at 80% -10%, #0e1c28 0%, var(--bg) 55%) no-repeat, var(--bg);
-    color: var(--text);
-    font: 14px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    font-family: "Roboto", system-ui, -apple-system, "Segoe UI", sans-serif;
+    color: var(--text); font-size: 15px; line-height: 1.45;
+    background: var(--bg-bottom);
+    overflow-x: hidden;
     -webkit-font-smoothing: antialiased;
   }
+  .backdrop {
+    position: fixed; inset: 0; z-index: -1; pointer-events: none;
+    background:
+      radial-gradient(70vmax 45vmax at 62% -8%, rgba(var(--house), 0.30), rgba(var(--house), 0.07) 48%, transparent 72%),
+      radial-gradient(40vmax 30vmax at 8% 30%, rgba(var(--house), 0.10), transparent 70%),
+      linear-gradient(180deg, var(--bg-top) 0%, var(--bg-mid) 46%, var(--bg-bottom) 100%);
+  }
   button, input, select, textarea { font: inherit; color: inherit; }
-  button {
-    background: var(--panel-2);
-    border: 1px solid var(--line);
-    border-radius: 9px;
-    padding: 8px 13px;
-    cursor: pointer;
-    transition: border-color .15s, background .15s, transform .05s;
-  }
-  button:hover:not(:disabled) { border-color: #33475d; }
-  button:active:not(:disabled) { transform: translateY(1px); }
-  button:disabled { opacity: .4; cursor: not-allowed; }
-  button.primary { background: var(--accent-soft); border-color: #1c5a7d; color: #c9ecff; }
-  button.primary:hover:not(:disabled) { border-color: #2a7ba8; }
-  button.danger { background: #2a1414; border-color: #552423; color: #ffb1aa; }
-  button.ghost { background: transparent; }
-  button.sm { padding: 5px 9px; font-size: 12px; border-radius: 8px; }
-  input, select, textarea {
-    background: var(--bg-soft);
-    border: 1px solid var(--line);
-    border-radius: 9px;
-    padding: 8px 11px;
-    width: 100%;
-  }
-  input:focus, select:focus, textarea:focus, button:focus-visible {
-    outline: 2px solid #1f6f96; outline-offset: 1px;
-  }
+  button { cursor: pointer; }
+  button:disabled { opacity: .45; cursor: not-allowed; }
   a { color: var(--accent); }
+  [hidden] { display: none !important; }
 
-  /* Top bar */
+  /* ---------- top bar ---------- */
   .topbar {
-    display: flex; align-items: center; gap: 12px;
-    padding: 12px 18px;
-    border-bottom: 1px solid var(--line-soft);
-    background: rgba(8, 11, 16, .82);
-    backdrop-filter: blur(8px);
+    display: flex; align-items: center; gap: 14px;
+    padding: max(12px, env(safe-area-inset-top)) 20px 12px;
+    border-bottom: 1px solid var(--card-line);
+    background: rgba(8, 9, 26, .72);
+    backdrop-filter: blur(14px);
     position: sticky; top: 0; z-index: 20;
   }
-  .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; letter-spacing: .2px; }
-  .brand .mark {
-    width: 26px; height: 26px; border-radius: 8px;
-    background: linear-gradient(135deg, #2a8fc0, #54c6ff);
-    display: grid; place-items: center; color: #04121b; font-size: 13px; font-weight: 800;
-  }
-  .conn { display: flex; align-items: center; gap: 7px; color: var(--muted); font-size: 12px; }
-  .conn .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--bad); }
-  .conn.on .dot { background: var(--ok); box-shadow: 0 0 0 3px rgba(70, 209, 122, .12); }
+  .wordmark { font-size: 22px; font-weight: 700; letter-spacing: .2px; line-height: 1; }
+  .wordmark span { color: var(--accent); }
+  .clock { color: var(--faint); font-size: 13px; font-variant-numeric: tabular-nums; }
+  .conn { display: inline-flex; align-items: center; gap: 7px; color: var(--faint); font-size: 12px; }
+  .conn .led { width: 8px; height: 8px; border-radius: 50%; background: var(--bad); }
+  .conn.on .led { background: var(--ok); box-shadow: 0 0 10px var(--ok); animation: pulse 2.4s ease-in-out infinite; }
+  @keyframes pulse { 50% { opacity: .45; } }
   .topbar .grow { flex: 1; }
 
-  /* Layout */
-  .shell { display: grid; grid-template-columns: 290px minmax(0, 1fr); min-height: calc(100vh - 51px); }
+  /* ---------- buttons ---------- */
+  .btn {
+    border: 1px solid var(--card-line);
+    background: rgba(255,255,255,.08);
+    color: var(--text);
+    border-radius: 999px;
+    padding: 9px 16px;
+    font-size: 14px; font-weight: 700;
+    text-decoration: none;
+    display: inline-flex; align-items: center; gap: 7px;
+    transition: background .15s, border-color .15s, box-shadow .15s, transform .05s;
+  }
+  .btn:hover:not(:disabled) { background: rgba(255,255,255,.13); border-color: rgba(255,255,255,.22); }
+  .btn:active:not(:disabled) { transform: translateY(1px); }
+  .btn.primary {
+    background: rgba(255,255,255,.92); color: var(--ink); border-color: transparent;
+    box-shadow: 0 0 16px rgba(var(--house), .35);
+  }
+  .btn.primary:hover:not(:disabled) { background: #fff; box-shadow: 0 0 22px rgba(var(--house), .5); }
+  .btn.danger { background: rgba(255,107,107,.12); border-color: rgba(255,107,107,.35); color: #ffb3b3; }
+  .btn.danger:hover:not(:disabled) { background: rgba(255,107,107,.2); }
+  .btn.sm { padding: 6px 12px; font-size: 12.5px; }
+  .btn.ghost { background: none; border-color: transparent; color: var(--dim); }
+  .btn.ghost:hover:not(:disabled) { background: rgba(255,255,255,.08); color: var(--text); }
+  button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+    outline: 2px solid rgba(var(--house), .9); outline-offset: 2px;
+  }
+
+  /* ---------- layout ---------- */
+  .shell { display: grid; grid-template-columns: 286px minmax(0, 1fr); min-height: calc(100vh - 55px); }
   .sidebar {
-    border-right: 1px solid var(--line-soft);
-    padding: 14px;
-    background: rgba(13, 18, 25, .55);
+    border-right: 1px solid var(--card-line);
+    padding: 16px 14px;
+    background: rgba(10, 10, 30, .45);
     display: flex; flex-direction: column; gap: 8px;
+    position: sticky; top: 55px; align-self: start;
+    max-height: calc(100vh - 55px); overflow-y: auto;
   }
-  .sidebar .label {
-    font-size: 11px; text-transform: uppercase; letter-spacing: .1em;
-    color: var(--muted); padding: 4px 4px 8px;
+  .side-label {
+    font-size: 11px; letter-spacing: 1.4px; text-transform: uppercase;
+    color: var(--faint); font-weight: 700; padding: 8px 6px 4px;
   }
-  .server-item {
+  .nav-item, .server-item {
     display: flex; align-items: center; gap: 10px;
-    padding: 10px 11px; border-radius: 10px;
+    padding: 10px 11px; border-radius: 13px;
     border: 1px solid transparent; background: transparent;
-    cursor: pointer; text-align: left; width: 100%;
+    color: var(--text); text-align: left; width: 100%;
+    transition: background .15s, border-color .15s;
+    position: relative;
   }
-  .server-item:hover { background: var(--panel); }
-  .server-item.active { background: var(--panel-2); border-color: var(--line); }
-  .server-item .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); flex: none; }
-  .server-item .dot.running { background: var(--ok); box-shadow: 0 0 0 3px rgba(70,209,122,.12); }
-  .server-item .dot.starting, .server-item .dot.stopping { background: var(--warn); }
-  .server-item .dot.crashed, .server-item .dot.error { background: var(--bad); }
-  .server-item .name { font-weight: 600; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .server-item .sub { font-size: 11px; color: var(--muted); }
+  .nav-item:hover, .server-item:hover { background: rgba(255,255,255,.06); }
+  .nav-item.active, .server-item.active {
+    background: rgba(255,255,255,.09);
+    border-color: var(--card-line);
+    box-shadow: inset 2px 0 0 var(--accent), 0 0 18px rgba(var(--house), .12);
+  }
+  .nav-item .ico { color: var(--accent); font-size: 15px; width: 18px; text-align: center; }
+  .server-item .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--faint); flex: none; }
+  .server-item .dot.running { background: var(--ok); box-shadow: 0 0 9px var(--ok); }
+  .server-item .dot.starting, .server-item .dot.stopping { background: var(--warn); box-shadow: 0 0 9px var(--warn); }
+  .server-item .dot.crashed, .server-item .dot.error { background: var(--bad); box-shadow: 0 0 9px var(--bad); }
   .server-item .body { min-width: 0; flex: 1; }
-  .sidebar .foot { margin-top: auto; padding-top: 12px; font-size: 11px; color: var(--muted); }
-
-  .content { padding: 18px 22px 40px; min-width: 0; }
-  .empty {
-    border: 1px dashed var(--line); border-radius: var(--radius);
-    padding: 48px 24px; text-align: center; color: var(--muted);
+  .server-item .name { display: block; font-weight: 700; font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .server-item .sub { display: block; font-size: 11.5px; color: var(--faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sidebar .foot { margin-top: auto; padding-top: 14px; }
+  .side-card {
+    background: var(--card); border: 1px solid var(--card-line);
+    border-radius: 16px; padding: 12px 13px; font-size: 12px; color: var(--faint);
   }
-  .empty h2 { color: var(--text); margin: 0 0 6px; font-size: 18px; }
+  .side-card .row { display: flex; justify-content: space-between; gap: 8px; color: var(--dim); }
+  .side-card .row b { color: var(--text); font-variant-numeric: tabular-nums; }
 
-  /* Server header */
-  .server-head { display: flex; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
-  .server-head h2 { margin: 0; font-size: 22px; letter-spacing: -.01em; }
-  .server-head .sub { color: var(--muted); font-size: 12px; margin-top: 4px; }
+  .content { padding: 22px 26px 56px; min-width: 0; max-width: 1280px; width: 100%; margin: 0 auto; }
+  .empty {
+    border: 1px dashed rgba(255,255,255,.18); border-radius: var(--radius);
+    padding: 56px 24px; text-align: center; color: var(--dim);
+    background: var(--card);
+  }
+  .empty h2 { color: var(--text); margin: 0 0 6px; font-size: 19px; }
+
+  /* ---------- progress bars ---------- */
+  .bar {
+    height: 7px; border-radius: 999px; background: rgba(255,255,255,.09);
+    overflow: hidden;
+  }
+  .bar > span { display: block; height: 100%; border-radius: 999px; background: var(--ok); transition: width .4s ease; }
+  .bar > span.warn { background: var(--warn); }
+  .bar > span.bad { background: var(--bad); }
+
+  /* ---------- overview ---------- */
+  .page-head { display: flex; align-items: flex-end; gap: 14px; flex-wrap: wrap; margin-bottom: 18px; }
+  .page-head h2 { margin: 0; font-size: 26px; letter-spacing: -.02em; font-weight: 700; }
+  .page-head .sub { color: var(--faint); font-size: 13px; margin-top: 4px; }
+  .page-head .spacer { flex: 1; }
+
+  .tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-bottom: 18px; }
+  .tile {
+    background: var(--card); border: 1px solid var(--card-line);
+    border-radius: 16px; padding: 13px 15px; min-width: 0;
+  }
+  .tile .k { font-size: 11px; letter-spacing: 1.2px; text-transform: uppercase; color: var(--faint); font-weight: 700; }
+  .tile .v { font-size: 20px; font-weight: 700; margin-top: 4px; font-variant-numeric: tabular-nums; }
+  .tile .s { font-size: 12px; color: var(--faint); margin-top: 2px; }
+  .tile .bar { margin-top: 9px; }
+
+  .segmented {
+    display: inline-flex; padding: 4px; gap: 4px;
+    border-radius: 999px; background: rgba(255,255,255,.06);
+    border: 1px solid var(--card-line);
+  }
+  .segmented button {
+    border: 0; border-radius: 999px; padding: 7px 14px;
+    background: none; color: var(--dim); font-size: 13px; font-weight: 700;
+    transition: background .15s, color .15s, box-shadow .15s;
+  }
+  .segmented button.active {
+    background: rgba(255,255,255,.92); color: var(--ink);
+    box-shadow: 0 0 14px rgba(var(--house), .35);
+  }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(310px, 1fr)); gap: 14px; }
+  .card {
+    --state: var(--faint);
+    position: relative;
+    background: var(--card); border: 1px solid var(--card-line);
+    border-radius: var(--radius); padding: 16px 16px 15px 19px;
+    display: flex; flex-direction: column; gap: 13px;
+    overflow: hidden;
+    transition: border-color .15s, transform .15s, box-shadow .15s;
+  }
+  .card::before {
+    content: ""; position: absolute; left: 0; top: 12px; bottom: 12px;
+    width: 4px; border-radius: 0 4px 4px 0; background: var(--state);
+  }
+  .card.running { --state: var(--ok); }
+  .card.starting, .card.stopping { --state: var(--warn); }
+  .card.crashed, .card.error { --state: var(--bad); }
+  .card:hover {
+    border-color: rgba(255,255,255,.2);
+    transform: translateY(-1px);
+    box-shadow: 0 10px 30px rgba(0,0,0,.35), 0 0 22px rgba(var(--house), .10);
+  }
+  .card .top { display: flex; align-items: center; gap: 9px; min-width: 0; }
+  .card .name { font-weight: 700; font-size: 16.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .card .up { color: var(--dim); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+  .card .meta { color: var(--faint); font-size: 12.5px; }
+  .card .meters { display: flex; flex-direction: column; gap: 9px; }
+  .meter .line { display: flex; justify-content: space-between; gap: 10px; font-size: 12px; color: var(--faint); margin-bottom: 5px; }
+  .meter .line b { color: var(--dim); font-weight: 600; font-variant-numeric: tabular-nums; }
+  .card .foot { display: flex; gap: 8px; align-items: center; margin-top: auto; }
+  .card .foot .spacer { flex: 1; }
+
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--faint); flex: none; }
+  .dot.running { background: var(--ok); box-shadow: 0 0 9px var(--ok); }
+  .dot.starting, .dot.stopping { background: var(--warn); box-shadow: 0 0 9px var(--warn); }
+  .dot.crashed, .dot.error { background: var(--bad); box-shadow: 0 0 9px var(--bad); }
+
+  /* ---------- detail ---------- */
+  .server-head {
+    display: flex; align-items: flex-start; gap: 16px; flex-wrap: wrap;
+    background: var(--card); border: 1px solid var(--card-line);
+    border-radius: var(--radius); padding: 16px 18px;
+  }
+  .server-head h2 { margin: 0; font-size: 24px; letter-spacing: -.02em; }
+  .server-head .sub { color: var(--faint); font-size: 12.5px; margin-top: 4px; }
   .badge {
     display: inline-flex; align-items: center; gap: 6px;
-    padding: 4px 10px; border-radius: 999px; font-size: 11px;
-    font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
-    border: 1px solid var(--line); color: var(--muted);
+    padding: 4px 11px; border-radius: 999px; font-size: 11px;
+    font-weight: 700; letter-spacing: .9px; text-transform: uppercase;
+    border: 1px solid var(--card-line); color: var(--dim);
+    background: rgba(255,255,255,.06);
   }
-  .badge.running { color: var(--ok); border-color: #1e6a3c; background: #0d2417; }
-  .badge.starting, .badge.stopping { color: var(--warn); border-color: #6a5119; background: #241d0c; }
-  .badge.crashed, .badge.error { color: var(--bad); border-color: #6b2723; background: #250f0e; }
-  .actions { display: flex; gap: 8px; flex-wrap: wrap; margin-left: auto; }
+  .badge.running { color: var(--ok); border-color: rgba(92,242,160,.4); background: rgba(92,242,160,.10); }
+  .badge.starting, .badge.stopping { color: var(--warn); border-color: rgba(255,207,122,.4); background: rgba(255,207,122,.10); }
+  .badge.crashed, .badge.error { color: var(--bad); border-color: rgba(255,107,107,.4); background: rgba(255,107,107,.10); }
+  .actions { display: flex; gap: 8px; flex-wrap: wrap; margin-left: auto; align-items: center; }
 
-  .stats { display: flex; gap: 22px; flex-wrap: wrap; margin: 14px 0 4px; }
-  .stat .k { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
-  .stat .v { font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .banner {
+    margin-top: 12px; padding: 11px 14px; border-radius: 14px;
+    border: 1px solid rgba(255,207,122,.45); background: rgba(255,207,122,.08);
+    color: var(--warn); font-size: 13.5px;
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  }
+  .banner .spacer { flex: 1; }
 
-  /* Tabs */
+  .stats { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; margin: 12px 0 0; }
+  .stat {
+    background: var(--card); border: 1px solid var(--card-line);
+    border-radius: 14px; padding: 10px 12px; min-width: 0;
+  }
+  .stat .k { font-size: 10.5px; text-transform: uppercase; letter-spacing: 1.1px; color: var(--faint); font-weight: 700; }
+  .stat .v { font-size: 15px; font-weight: 700; margin-top: 3px; font-variant-numeric: tabular-nums; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* ---------- tabs ---------- */
   .tabs {
-    display: flex; gap: 4px; margin: 18px 0 0;
-    border-bottom: 1px solid var(--line-soft); overflow-x: auto;
+    display: inline-flex; padding: 4px; gap: 4px; margin: 18px 0 0;
+    border-radius: 999px; background: rgba(255,255,255,.06);
+    border: 1px solid var(--card-line); max-width: 100%; overflow-x: auto;
   }
   .tabs button {
-    background: none; border: none; border-bottom: 2px solid transparent;
-    border-radius: 0; padding: 10px 14px; color: var(--muted);
-    font-weight: 600; font-size: 13px; white-space: nowrap;
+    border: 0; border-radius: 999px; padding: 8px 16px;
+    background: none; color: var(--dim); font-size: 13.5px; font-weight: 700;
+    white-space: nowrap; transition: background .15s, color .15s, box-shadow .15s;
   }
-  .tabs button.active { color: var(--text); border-bottom-color: var(--accent); }
-  .tabpane { padding-top: 16px; }
+  .tabs button.active {
+    background: rgba(255,255,255,.92); color: var(--ink);
+    box-shadow: 0 0 14px rgba(var(--house), .35);
+  }
+  .tabpane { padding-top: 14px; }
 
   .panel {
-    background: var(--panel); border: 1px solid var(--line-soft);
+    background: var(--card); border: 1px solid var(--card-line);
     border-radius: var(--radius); padding: 14px;
   }
+  .panel-head { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+  .panel-head .title { font-size: 13px; letter-spacing: 1.2px; text-transform: uppercase; color: var(--faint); font-weight: 700; }
   .toolbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
   .toolbar .grow { flex: 1; }
 
   pre.log {
-    margin: 0; background: #05080c; border: 1px solid var(--line-soft);
-    border-radius: 10px; padding: 12px; height: 420px; overflow: auto;
-    font: 12px/1.55 ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-    white-space: pre-wrap; word-break: break-word; color: #c6d4e1;
+    margin: 0; background: rgba(3, 3, 12, .72);
+    border: 1px solid var(--card-line); border-radius: 14px;
+    padding: 13px; height: 420px; overflow: auto;
+    font: 12.5px/1.6 ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    white-space: pre-wrap; word-break: break-word; color: #cfc9e6;
   }
-  .cmd-row { display: flex; gap: 8px; }
-  .cmd-row input { flex: 1; }
+  .cmd-row { display: flex; gap: 8px; margin-top: 10px; }
+  .cmd-row input {
+    flex: 1; min-width: 0;
+    background: rgba(255,255,255,.06); border: 1px solid var(--card-line);
+    border-radius: 999px; padding: 10px 16px;
+    font-family: ui-monospace, Menlo, monospace; font-size: 12.5px;
+  }
+  .cmd-row input::placeholder { color: var(--faint); }
+  .cmd-row input:focus { outline: none; border-color: rgba(var(--house), .7); box-shadow: 0 0 0 3px rgba(var(--house), .18); }
 
+  /* ---------- tables ---------- */
+  .table-wrap { overflow-x: auto; }
   table { width: 100%; border-collapse: collapse; }
-  th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--line-soft); font-size: 13px; }
-  th { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .07em; font-weight: 600; }
+  th, td { text-align: left; padding: 10px 10px; border-bottom: 1px solid var(--card-line); font-size: 13px; }
+  th { color: var(--faint); font-size: 10.5px; text-transform: uppercase; letter-spacing: 1.1px; font-weight: 700; }
   tr:last-child td { border-bottom: none; }
+  tbody tr { transition: background .12s; }
+  tbody tr:hover { background: rgba(255,255,255,.04); }
   td.actions-cell { text-align: right; white-space: nowrap; }
   td.actions-cell button, td.actions-cell a { margin-left: 6px; }
   .mono { font-family: ui-monospace, Menlo, monospace; font-size: 12px; }
-  .muted { color: var(--muted); }
+  .muted { color: var(--faint); }
   .path { font-family: ui-monospace, Menlo, monospace; font-size: 12px; color: var(--accent); word-break: break-all; }
-  .crumbs { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; font-family: ui-monospace, Menlo, monospace; font-size: 12px; }
-  .crumbs button { padding: 2px 6px; font-size: 12px; background: transparent; border-color: transparent; color: var(--accent); }
-  .crumbs button:hover { border-color: var(--line); }
+  .crumbs { display: flex; gap: 2px; flex-wrap: wrap; align-items: center; font-family: ui-monospace, Menlo, monospace; font-size: 12px; }
+  .crumbs button { padding: 3px 7px; font-size: 12px; background: none; border: 0; border-radius: 8px; color: var(--accent); }
+  .crumbs button:hover { background: rgba(255,255,255,.08); }
+  .kv { display: grid; grid-template-columns: 190px 1fr; }
+  .kv > div { padding: 11px 4px; border-bottom: 1px solid var(--card-line); font-size: 13.5px; }
+  .kv > div:nth-last-child(-n+2) { border-bottom: none; }
+  .kv .k { color: var(--faint); }
 
-  /* Dialogs */
+  /* ---------- dialogs ---------- */
   dialog {
-    background: var(--panel); color: var(--text);
-    border: 1px solid var(--line); border-radius: 14px;
-    padding: 20px; width: min(560px, calc(100vw - 32px));
-    box-shadow: 0 24px 80px rgba(0,0,0,.6);
+    background: #14122c; color: var(--text);
+    border: 1px solid rgba(255,255,255,.16); border-radius: 20px;
+    padding: 22px; width: min(560px, calc(100vw - 32px));
+    box-shadow: 0 30px 90px rgba(0,0,0,.65), 0 0 40px rgba(var(--house), .18);
   }
-  dialog::backdrop { background: rgba(3, 6, 10, .72); backdrop-filter: blur(2px); }
-  dialog h3 { margin: 0 0 14px; font-size: 16px; }
+  dialog::backdrop { background: rgba(3, 3, 10, .74); backdrop-filter: blur(3px); }
+  dialog h3 { margin: 0 0 16px; font-size: 18px; }
   .field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
-  .field label { font-size: 11px; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); }
-  .row-end { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
-  textarea { resize: vertical; min-height: 240px; font-family: ui-monospace, Menlo, monospace; font-size: 12px; }
+  .field label { font-size: 10.5px; text-transform: uppercase; letter-spacing: 1.1px; color: var(--faint); font-weight: 700; }
+  .row-end { display: flex; gap: 8px; justify-content: flex-end; margin-top: 18px; }
+  input, select, textarea {
+    width: 100%; padding: 10px 13px;
+    background: rgba(255,255,255,.06); border: 1px solid var(--card-line);
+    border-radius: 12px; color: var(--text); font-size: 14px;
+  }
+  input::placeholder, textarea::placeholder { color: var(--faint); }
+  input:focus, select:focus, textarea:focus {
+    outline: none; border-color: rgba(var(--house), .7);
+    box-shadow: 0 0 0 3px rgba(var(--house), .18);
+  }
+  select option, select optgroup { background: #1b1838; color: #fff; }
+  textarea { resize: vertical; min-height: 240px; font-family: ui-monospace, Menlo, monospace; font-size: 12.5px; }
 
   #toast {
-    position: fixed; right: 16px; bottom: 16px; z-index: 50;
-    max-width: min(420px, calc(100vw - 32px));
-    background: var(--panel-2); border: 1px solid var(--line);
-    border-radius: 10px; padding: 11px 14px; font-size: 13px;
-    display: none; box-shadow: 0 14px 40px rgba(0,0,0,.5);
+    position: fixed; left: 50%; bottom: max(22px, env(safe-area-inset-bottom));
+    transform: translate(-50%, 30px); opacity: 0;
+    transition: opacity .25s, transform .25s;
+    background: rgba(20, 18, 44, .96); border: 1px solid var(--card-line);
+    color: var(--text); padding: 11px 18px; border-radius: 999px; font-size: 13.5px;
+    max-width: min(440px, calc(100vw - 32px));
+    box-shadow: 0 8px 30px rgba(0,0,0,.5), 0 0 20px rgba(var(--house), .25);
+    pointer-events: none; z-index: 50; text-align: center;
   }
-  #toast.err { border-color: #6b2723; color: #ffb1aa; }
+  #toast.show { opacity: 1; transform: translate(-50%, 0); }
+  #toast.err { border-color: rgba(255,107,107,.5); color: #ffb3b3; }
 
+  @media (max-width: 900px) {
+    .tiles { grid-template-columns: 1fr 1fr; }
+    .tiles .tile:last-child { grid-column: 1 / -1; }
+    .stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  }
   @media (max-width: 820px) {
     .shell { grid-template-columns: 1fr; }
     .sidebar {
-      border-right: none; border-bottom: 1px solid var(--line-soft);
-      flex-direction: row; overflow-x: auto; padding: 10px 12px; gap: 6px;
+      position: static; max-height: none; overflow: visible;
+      border-right: none; border-bottom: 1px solid var(--card-line);
+      flex-direction: row; align-items: center; gap: 6px;
+      padding: 10px 12px; overflow-x: auto;
     }
-    .sidebar .label, .sidebar .foot { display: none; }
-    .server-item { width: auto; flex: none; padding: 8px 10px; }
+    .side-label, .sidebar .foot { display: none; }
+    #server-list { display: flex; gap: 6px; }
+    .nav-item, .server-item { width: auto; flex: none; padding: 8px 11px; }
     .server-item .sub { display: none; }
-    .content { padding: 14px 14px 32px; }
+    .content { padding: 16px 14px 40px; }
+    .page-head h2 { font-size: 22px; }
+    .server-head h2 { font-size: 20px; }
     .actions { margin-left: 0; width: 100%; }
-    .server-head h2 { font-size: 19px; }
-    pre.log { height: 300px; }
+    .stats { grid-template-columns: 1fr 1fr; }
+    .tabs { width: 100%; }
+    .tabs button { flex: 1; padding: 8px 10px; font-size: 12.5px; }
+    pre.log { height: 320px; }
     table .hide-sm { display: none; }
+    .kv { grid-template-columns: 1fr; }
+    .kv .k { padding-bottom: 0; border-bottom: none; }
+    .kv > div { padding: 6px 2px; }
+    .kv > div:nth-last-child(-n+2) { border-bottom: 1px solid var(--card-line); }
+    .kv > div:last-child { border-bottom: none; }
+  }
+  @media (max-width: 560px) {
+    .tiles { grid-template-columns: 1fr; }
+    .tiles .tile:last-child { grid-column: auto; }
+    .clock { display: none; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; animation: none !important; }
   }
 </style>
 </head>
 <body>
+<div class="backdrop" aria-hidden="true"></div>
 
 <div class="topbar">
-  <div class="brand"><span class="mark">C</span>PS5Craft</div>
-  <div class="conn" id="conn"><span class="dot"></span><span id="conn-text">connecting…</span></div>
+  <div class="wordmark">PS5<span>Craft</span></div>
+  <div class="conn" id="conn" role="status" aria-live="polite"><span class="led" aria-hidden="true"></span><span id="conn-text">connecting…</span></div>
   <span class="grow"></span>
-  <button class="primary" id="btn-new">New server</button>
+  <span class="clock" id="clock" aria-hidden="true"></span>
+  <button class="btn primary" id="btn-new">New server</button>
 </div>
 
 <div class="shell">
   <aside class="sidebar">
-    <div class="label">Servers</div>
+    <button class="nav-item" id="nav-all">
+      <span class="ico" aria-hidden="true">▦</span>
+      <span class="body"><span class="name">All servers</span></span>
+    </button>
+    <div class="side-label">Servers</div>
     <div id="server-list"></div>
-    <div class="foot" id="sidebar-foot">—</div>
+    <div class="foot">
+      <div class="side-card" id="storage" hidden>
+        <div class="row"><span>Data volume</span><b id="storage-pct">—</b></div>
+        <div class="bar" style="margin:7px 0 6px"><span id="storage-bar" style="width:0"></span></div>
+        <div id="storage-text">—</div>
+      </div>
+      <div id="sidebar-foot" class="muted" style="font-size:12px;padding:10px 4px 0">—</div>
+    </div>
   </aside>
 
   <main class="content">
-    <div id="empty" class="empty" style="display:none">
-      <h2>No servers yet</h2>
-      <p>Create a server to get started. Tested software: Vanilla, Fabric, Paper.</p>
-      <button class="primary" id="btn-new-2">Create a server</button>
-    </div>
+    <!-- Overview -->
+    <section id="overview">
+      <div class="page-head">
+        <div>
+          <h2>Servers</h2>
+          <div class="sub" id="overview-sub">—</div>
+        </div>
+        <span class="spacer"></span>
+        <div class="segmented" id="view-toggle" role="group" aria-label="Server list layout">
+          <button data-view="grid" class="active">Grid</button>
+          <button data-view="list">Table</button>
+        </div>
+        <button class="btn primary" id="btn-new-2">New server</button>
+      </div>
 
-    <section id="view" style="display:none">
+      <div class="tiles">
+        <div class="tile">
+          <div class="k">Servers</div>
+          <div class="v" id="tile-running">—</div>
+          <div class="s" id="tile-running-sub">—</div>
+        </div>
+        <div class="tile">
+          <div class="k">Heap reserved</div>
+          <div class="v" id="tile-heap">—</div>
+          <div class="s">configured limits, not usage</div>
+        </div>
+        <div class="tile">
+          <div class="k">Data volume</div>
+          <div class="v" id="tile-disk">—</div>
+          <div class="s" id="tile-disk-sub">—</div>
+          <div class="bar"><span id="tile-disk-bar" style="width:0"></span></div>
+        </div>
+      </div>
+
+      <div id="overview-empty" class="empty" hidden>
+        <h2>No servers yet</h2>
+        <p>Create a server to get started. Tested on PS5: Vanilla, Fabric, Paper.</p>
+        <button class="btn primary" id="btn-new-3">Create a server</button>
+      </div>
+
+      <div id="server-grid" class="grid"></div>
+
+      <div id="server-table" hidden>
+        <div class="panel">
+          <div class="table-wrap">
+            <table>
+              <thead><tr>
+                <th>Server</th><th>State</th><th class="hide-sm">Software</th>
+                <th class="hide-sm">Heap</th><th class="hide-sm">Disk</th>
+                <th class="hide-sm">Uptime</th><th></th>
+              </tr></thead>
+              <tbody id="server-rows"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Server detail -->
+    <section id="view" hidden>
       <div class="server-head">
         <div>
           <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            <span class="dot" id="srv-dot" aria-hidden="true"></span>
             <h2 id="srv-name">—</h2>
             <span class="badge" id="srv-state">—</span>
           </div>
           <div class="sub" id="srv-sub">—</div>
         </div>
         <div class="actions">
-          <button class="primary sm" id="act-start">Start</button>
-          <button class="sm" id="act-stop">Stop</button>
-          <button class="sm" id="act-restart">Restart</button>
-          <button class="sm" id="act-eula">Accept EULA</button>
-          <button class="sm danger" id="act-delete">Delete</button>
+          <div class="segmented" role="group" aria-label="Power control">
+            <button id="act-start">Start</button>
+            <button id="act-restart">Restart</button>
+            <button id="act-stop">Stop</button>
+          </div>
         </div>
+      </div>
+
+      <div class="banner" id="eula-banner" hidden>
+        <span>EULA not accepted. The server exits at startup until you accept it.</span>
+        <span class="spacer"></span>
+        <button class="btn sm" id="act-eula">Accept EULA</button>
       </div>
 
       <div class="stats">
         <div class="stat"><div class="k">PID</div><div class="v" id="st-pid">—</div></div>
         <div class="stat"><div class="k">Uptime</div><div class="v" id="st-uptime">—</div></div>
-        <div class="stat"><div class="k">Heap</div><div class="v" id="st-heap">—</div></div>
-        <div class="stat"><div class="k">Exit</div><div class="v" id="st-exit">—</div></div>
+        <div class="stat"><div class="k">Heap limit</div><div class="v" id="st-heap">—</div></div>
+        <div class="stat"><div class="k">Disk</div><div class="v" id="st-disk">—</div></div>
+        <div class="stat"><div class="k">Exit code</div><div class="v" id="st-exit">—</div></div>
       </div>
 
-      <div class="tabs" id="tabs">
-        <button data-tab="logs" class="active">Console log</button>
-        <button data-tab="cmd">Send command</button>
-        <button data-tab="files">Files</button>
-        <button data-tab="backups">Backups</button>
+      <div class="tabs" id="tabs" role="tablist">
+        <button data-tab="console" class="active" role="tab">Console</button>
+        <button data-tab="files" role="tab">Files</button>
+        <button data-tab="backups" role="tab">Backups</button>
+        <button data-tab="settings" role="tab">Settings</button>
       </div>
 
-      <div class="tabpane" id="tab-logs">
+      <div class="tabpane" id="tab-console" role="tabpanel">
         <div class="panel">
-          <div class="toolbar">
-            <span class="muted">Auto-refresh every 2 s while this tab is open</span>
-            <span class="grow"></span>
-            <button class="sm" id="btn-log-refresh">Refresh</button>
+          <div class="panel-head">
+            <span class="title">Live output</span>
+            <span class="muted" style="font-size:12.5px">refreshed every 2 s while this tab is open</span>
+            <span class="grow" style="flex:1"></span>
+            <button class="btn sm" id="btn-log-refresh">Refresh</button>
           </div>
-          <pre class="log" id="log-view">(no output yet)</pre>
-        </div>
-      </div>
-
-      <div class="tabpane" id="tab-cmd" style="display:none">
-        <div class="panel">
+          <pre class="log" id="log-view" aria-live="off">(no output yet)</pre>
           <div class="cmd-row">
-            <input type="text" id="cmd-input" placeholder="say hello / list / op player" autocomplete="off">
-            <button class="primary" id="btn-cmd-send">Send</button>
+            <input type="text" id="cmd-input" placeholder="say hello / list / op player" autocomplete="off" aria-label="Server command">
+            <button class="btn primary" id="btn-cmd-send">Send</button>
           </div>
-          <p class="muted" style="margin:10px 0 0">Commands go to the server stdin. Works while the server is running.</p>
+          <p class="muted" style="margin:9px 0 0;font-size:12.5px">Commands go to server stdin. The server must be running.</p>
         </div>
       </div>
 
-      <div class="tabpane" id="tab-files" style="display:none">
+      <div class="tabpane" id="tab-files" role="tabpanel" hidden>
         <div class="panel">
           <div class="toolbar">
             <div class="crumbs" id="fs-crumbs"></div>
             <span class="grow"></span>
-            <button class="sm" id="btn-fs-up">Up</button>
-            <button class="sm" id="btn-fs-refresh">Refresh</button>
-            <button class="sm" id="btn-fs-mkdir">New folder</button>
-            <button class="sm primary" id="btn-fs-write">New file</button>
+            <button class="btn sm" id="btn-fs-up">Up</button>
+            <button class="btn sm" id="btn-fs-refresh">Refresh</button>
+            <button class="btn sm" id="btn-fs-mkdir">New folder</button>
+            <button class="btn sm primary" id="btn-fs-write">New file</button>
           </div>
-          <table>
-            <thead><tr><th>Name</th><th class="hide-sm">Size</th><th class="hide-sm">Modified</th><th></th></tr></thead>
-            <tbody id="fs-rows"></tbody>
-          </table>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Name</th><th class="hide-sm">Size</th><th class="hide-sm">Modified</th><th></th></tr></thead>
+              <tbody id="fs-rows"></tbody>
+            </table>
+          </div>
+          <p class="muted" style="margin:12px 0 0;font-size:12.5px">Browsing is restricted to this server's directory.</p>
         </div>
       </div>
 
-      <div class="tabpane" id="tab-backups" style="display:none">
+      <div class="tabpane" id="tab-backups" role="tabpanel" hidden>
         <div class="panel">
           <div class="toolbar">
-            <button class="primary sm" id="btn-backup-world">Back up world</button>
-            <button class="sm" id="btn-backup-full">Back up whole server</button>
+            <button class="btn sm primary" id="btn-backup-world">Back up world</button>
+            <button class="btn sm" id="btn-backup-full">Back up whole server</button>
             <span class="grow"></span>
-            <button class="sm" id="btn-backup-refresh">Refresh</button>
+            <button class="btn sm" id="btn-backup-refresh">Refresh</button>
           </div>
-          <table>
-            <thead><tr><th>Backup</th><th class="hide-sm">Size</th><th class="hide-sm">Created</th><th></th></tr></thead>
-            <tbody id="backup-rows"></tbody>
-          </table>
-          <p class="muted" style="margin:12px 0 0">Restoring replaces the current world. Stop the server first.</p>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Backup</th><th class="hide-sm">Size</th><th class="hide-sm">Created</th><th></th></tr></thead>
+              <tbody id="backup-rows"></tbody>
+            </table>
+          </div>
+          <p class="muted" style="margin:12px 0 0;font-size:12.5px">Restoring replaces the current world. Stop the server first.</p>
+        </div>
+      </div>
+
+      <div class="tabpane" id="tab-settings" role="tabpanel" hidden>
+        <div class="panel">
+          <div class="kv" id="settings-kv"></div>
+          <p class="muted" style="margin:12px 0 0;font-size:12.5px">Instance settings are fixed when the server is created. Memory changes need a new instance.</p>
+          <div class="toolbar" style="margin-top:14px;margin-bottom:0">
+            <button class="btn sm" id="act-eula-2">Accept EULA</button>
+            <span class="grow"></span>
+            <button class="btn sm danger" id="act-delete">Delete server</button>
+          </div>
         </div>
       </div>
     </section>
@@ -362,8 +635,8 @@
       <input type="number" id="new-memory" value="224" min="128" max="4096">
     </div>
     <div class="row-end">
-      <button value="cancel" id="btn-new-cancel">Cancel</button>
-      <button class="primary" value="create" id="btn-create">Create</button>
+      <button class="btn ghost" value="cancel" id="btn-new-cancel">Cancel</button>
+      <button class="btn primary" value="create" id="btn-create">Create</button>
     </div>
   </form>
 </dialog>
@@ -376,12 +649,12 @@
   </div>
   <textarea id="dlg-text-body" spellcheck="false"></textarea>
   <div class="row-end">
-    <button id="btn-text-cancel">Cancel</button>
-    <button class="primary" id="btn-text-save">Save</button>
+    <button class="btn ghost" id="btn-text-cancel">Cancel</button>
+    <button class="btn primary" id="btn-text-save">Save</button>
   </div>
 </dialog>
 
-<div id="toast"></div>
+<div id="toast" role="status" aria-live="polite"></div>
 
 <script>
 "use strict";
@@ -390,11 +663,16 @@ const $ = (sel) => document.querySelector(sel);
 const state = {
   instances: [],
   selected: null,
-  tab: "logs",
+  tab: "console",
+  view: localStorage.getItem("ps5craft.view") === "list" ? "list" : "grid",
   fsPath: "",
   fsEditing: null,
+  disk: null,
+  sizes: {},
   lastSidebar: "",
+  lastOverview: "",
   lastHeader: "",
+  lastSettings: "",
 };
 
 /* ---------- helpers ---------- */
@@ -403,9 +681,9 @@ function toast(msg, isErr) {
   const el = $("#toast");
   el.textContent = msg;
   el.className = isErr ? "err" : "";
-  el.style.display = "block";
+  el.classList.add("show");
   clearTimeout(toast._t);
-  toast._t = setTimeout(() => { el.style.display = "none"; }, 4200);
+  toast._t = setTimeout(() => { el.classList.remove("show"); }, 4200);
 }
 
 async function api(path, opts) {
@@ -432,7 +710,7 @@ function encPath(p) {
 
 function fmtBytes(n) {
   if (!n) return "0 B";
-  const units = ["B", "KiB", "MiB", "GiB"];
+  const units = ["B", "KiB", "MiB", "GiB", "TiB"];
   let i = 0;
   while (n >= 1024 && i < units.length - 1) { n /= 1024; i++; }
   return n.toFixed(i === 0 ? 0 : 1) + " " + units[i];
@@ -459,6 +737,20 @@ function sel() {
   return state.instances.find((i) => i.id === state.selected) || null;
 }
 
+function isBusy(inst) {
+  return inst.state === "starting" || inst.state === "stopping";
+}
+
+function diskOf(id) {
+  return Number(state.sizes[id] || 0);
+}
+
+function diskBar(bytes) {
+  const total = state.disk && state.disk.total ? state.disk.total : 0;
+  if (!bytes || !total) return 0;
+  return Math.min(100, (bytes / total) * 100);
+}
+
 /* ---------- data ---------- */
 
 async function loadInstances() {
@@ -466,60 +758,212 @@ async function loadInstances() {
     const data = await api("/api/instances");
     state.instances = data.instances || [];
     $("#conn").classList.add("on");
-    $("#conn-text").textContent = "connected · " + new Date().toLocaleTimeString();
-    if (!state.selected && state.instances.length) state.selected = state.instances[0].id;
-    if (state.selected && !sel()) state.selected = state.instances.length ? state.instances[0].id : null;
+    $("#conn-text").textContent = "connected";
+    if (state.selected && !sel()) state.selected = null;
     renderSidebar();
-    renderMain();
+    renderOverview();
+    renderDetail();
   } catch (e) {
     $("#conn").classList.remove("on");
     $("#conn-text").textContent = "backend unreachable";
   }
 }
 
+async function loadSystem() {
+  try {
+    const data = await api("/api/system");
+    state.disk = data.disk || null;
+    state.sizes = data.instances || {};
+  } catch (e) {
+    state.disk = null;
+    state.sizes = {};
+  }
+  renderStorage();
+  state.lastOverview = "";
+  state.lastHeader = "";
+  renderOverview();
+  renderDetail();
+}
+
+function renderStorage() {
+  const box = $("#storage");
+  const d = state.disk;
+  if (!d || !d.total) {
+    box.hidden = true;
+    $("#tile-disk").textContent = "—";
+    $("#tile-disk-sub").textContent = "capacity unavailable";
+    $("#tile-disk-bar").style.width = "0";
+    return;
+  }
+  box.hidden = false;
+  const pct = Math.round((d.used / d.total) * 100);
+  $("#storage-pct").textContent = pct + "%";
+  const bar = $("#storage-bar");
+  bar.style.width = Math.min(100, pct) + "%";
+  bar.className = pct >= 95 ? "bad" : (pct >= 85 ? "warn" : "");
+  $("#storage-text").textContent = fmtBytes(d.free) + " free of " + fmtBytes(d.total);
+
+  $("#tile-disk").textContent = pct + "% used";
+  $("#tile-disk-sub").textContent = fmtBytes(d.free) + " free of " + fmtBytes(d.total);
+  const tb = $("#tile-disk-bar");
+  tb.style.width = Math.min(100, pct) + "%";
+  tb.className = pct >= 95 ? "bad" : (pct >= 85 ? "warn" : "");
+}
+
+/* ---------- sidebar ---------- */
+
 function renderSidebar() {
   const root = $("#server-list");
-  const key = JSON.stringify(state.instances.map((i) => [i.id, i.name, i.state, i.software]));
+  const key = JSON.stringify(state.instances.map((i) => [i.id, i.name, i.state, i.software, i.version]));
   if (key !== state.lastSidebar) {
     state.lastSidebar = key;
     root.innerHTML = "";
     for (const inst of state.instances) {
       const b = document.createElement("button");
-      b.className = "server-item" + (inst.id === state.selected ? " active" : "");
+      b.className = "server-item";
       b.dataset.id = inst.id;
       b.innerHTML = `
-        <span class="dot ${inst.state}"></span>
+        <span class="dot ${esc(inst.state)}" aria-hidden="true"></span>
         <span class="body">
           <span class="name">${esc(inst.name)}</span>
           <span class="sub">${esc(inst.software)} ${esc(inst.version)} · ${esc(inst.state)}</span>
         </span>`;
-      b.addEventListener("click", () => {
-        state.selected = inst.id;
-        state.fsPath = "";
-        renderSidebar();
-        renderMain();
-        switchTab(state.tab);
-      });
+      b.addEventListener("click", () => openServer(inst.id));
       root.appendChild(b);
     }
-    $("#sidebar-foot").textContent =
-      state.instances.filter((i) => i.state === "running").length + " running · " +
-      state.instances.length + " total";
   }
-  for (const el of root.querySelectorAll(".server-item")) {
+  for (const el of root.querySelectorAll(".server-item"))
     el.classList.toggle("active", el.dataset.id === state.selected);
-  }
-  $("#empty").style.display = state.instances.length ? "none" : "";
-  $("#view").style.display = state.instances.length ? "" : "none";
+  $("#nav-all").classList.toggle("active", !state.selected);
+  const running = state.instances.filter((i) => i.state === "running").length;
+  $("#sidebar-foot").textContent = running + " running · " + state.instances.length + " total";
 }
 
-function renderMain() {
+function openServer(id) {
+  state.selected = id;
+  state.fsPath = "";
+  state.lastHeader = "";
+  state.lastSettings = "";
+  renderSidebar();
+  renderOverview();
+  renderDetail();
+  switchTab(state.tab);
+}
+
+/* ---------- overview ---------- */
+
+function renderOverview() {
+  const overview = $("#overview");
+  overview.hidden = !!state.selected;
+  if (state.selected) return;
+
+  const list = state.instances;
+  const running = list.filter((i) => i.state === "running").length;
+  const heap = list.reduce((sum, i) => sum + Number(i.memory_max_mib || 0), 0);
+
+  $("#overview-empty").hidden = list.length > 0;
+  $("#server-grid").hidden = state.view !== "grid" || !list.length;
+  $("#server-table").hidden = state.view !== "list" || !list.length;
+  for (const b of document.querySelectorAll("#view-toggle button"))
+    b.classList.toggle("active", b.dataset.view === state.view);
+
+  $("#overview-sub").textContent = list.length
+    ? running + " running of " + list.length + " server" + (list.length === 1 ? "" : "s")
+    : "Nothing created yet";
+  $("#tile-running").textContent = running + " / " + list.length;
+  $("#tile-running-sub").textContent = list.length
+    ? (list.length - running) + " stopped or crashed" : "no servers yet";
+  $("#tile-heap").textContent = heap ? fmtBytes(heap * 1024 * 1024) : "—";
+
+  const key = JSON.stringify([state.view, list.map((i) => [i.id, i.name, i.state,
+    i.software, i.version, i.memory_max_mib, i.pid, i.exit_code, i.exit_reason]),
+    list.map((i) => diskOf(i.id))]);
+  if (key === state.lastOverview) {
+    for (const el of document.querySelectorAll("[data-uptime]"))
+      el.textContent = fmtUptime(Number(el.dataset.uptime));
+    return;
+  }
+  state.lastOverview = key;
+
+  if (state.view === "grid") {
+    const root = $("#server-grid");
+    root.innerHTML = "";
+    for (const inst of list) {
+      const card = document.createElement("article");
+      card.className = "card " + inst.state;
+      const bytes = diskOf(inst.id);
+      card.innerHTML = `
+        <div class="top">
+          <span class="dot ${esc(inst.state)}" aria-hidden="true"></span>
+          <span class="name">${esc(inst.name)}</span>
+          <span class="up" data-uptime="${inst.uptime_ms}">${fmtUptime(inst.uptime_ms)}</span>
+          <span class="badge ${esc(inst.state)}" style="margin-left:auto">${esc(inst.state)}</span>
+        </div>
+        <div class="meta">${esc(inst.software)} ${esc(inst.version)} · ${esc(inst.id)}</div>
+        <div class="meters">
+          <div class="meter">
+            <div class="line"><span>Disk</span><b>${fmtBytes(bytes)}</b></div>
+            <div class="bar"><span style="width:${diskBar(bytes).toFixed(2)}%"></span></div>
+          </div>
+        </div>
+        <div class="foot">
+          <button class="btn sm primary" data-open>Open</button>
+          <span class="spacer"></span>
+          <span class="muted mono" style="font-size:11.5px">heap ${inst.memory_max_mib} MiB</span>
+          <button class="btn sm" data-power></button>
+        </div>`;
+      card.querySelector("[data-open]").addEventListener("click", () => openServer(inst.id));
+      const power = card.querySelector("[data-power]");
+      const canStop = inst.state === "running";
+      power.textContent = canStop ? "Stop" : "Start";
+      power.disabled = isBusy(inst) || (!canStop && inst.state !== "stopped" && inst.state !== "crashed");
+      power.addEventListener("click", () => action(canStop ? "stop" : "start", inst.id));
+      root.appendChild(card);
+    }
+  } else {
+    const tbody = $("#server-rows");
+    tbody.innerHTML = "";
+    for (const inst of list) {
+      const bytes = diskOf(inst.id);
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td style="border-left:3px solid var(--${inst.state === "running" ? "ok" : inst.state === "starting" || inst.state === "stopping" ? "warn" : inst.state === "crashed" || inst.state === "error" ? "bad" : "faint"})">
+          <span class="dot ${esc(inst.state)}" aria-hidden="true" style="display:inline-block;margin-right:7px"></span>${esc(inst.name)}
+        </td>
+        <td>${esc(inst.state)}</td>
+        <td class="muted hide-sm">${esc(inst.software)} ${esc(inst.version)}</td>
+        <td class="muted hide-sm">${inst.memory_max_mib} MiB</td>
+        <td class="muted hide-sm">${fmtBytes(bytes)}</td>
+        <td class="muted hide-sm" data-uptime="${inst.uptime_ms}">${fmtUptime(inst.uptime_ms)}</td>
+        <td class="actions-cell"></td>`;
+      const cell = tr.querySelector(".actions-cell");
+      const mk = (label, fn, cls) => {
+        const b = document.createElement("button");
+        b.className = "btn sm" + (cls ? " " + cls : "");
+        b.textContent = label;
+        b.addEventListener("click", fn);
+        cell.appendChild(b);
+      };
+      mk("Open", () => openServer(inst.id), "primary");
+      if (inst.state === "running") mk("Stop", () => action("stop", inst.id));
+      else if (inst.state === "stopped" || inst.state === "crashed") mk("Start", () => action("start", inst.id));
+      tbody.appendChild(tr);
+    }
+  }
+}
+
+/* ---------- detail ---------- */
+
+function renderDetail() {
   const inst = sel();
+  $("#view").hidden = !inst;
   if (!inst) return;
-  const key = JSON.stringify(inst);
+
+  const key = JSON.stringify([inst, diskOf(inst.id)]);
   if (key !== state.lastHeader) {
     state.lastHeader = key;
     $("#srv-name").textContent = inst.name;
+    $("#srv-dot").className = "dot " + inst.state;
     const badge = $("#srv-state");
     badge.textContent = inst.state;
     badge.className = "badge " + inst.state;
@@ -529,28 +973,58 @@ function renderMain() {
     $("#st-pid").textContent = inst.pid || "—";
     $("#st-uptime").textContent = fmtUptime(inst.uptime_ms);
     $("#st-heap").textContent = inst.memory_max_mib + " MiB";
+    $("#st-disk").textContent = fmtBytes(diskOf(inst.id));
     $("#st-exit").textContent = inst.exit_code >= 0 ? inst.exit_code : "—";
+
     const running = inst.state === "running";
-    const busy = inst.state === "starting" || inst.state === "stopping";
+    const busy = isBusy(inst);
     $("#act-start").disabled = running || busy;
     $("#act-stop").disabled = !running;
     $("#act-restart").disabled = !running;
-    $("#act-eula").disabled = !!inst.eula_accepted;
+    $("#act-eula").hidden = !!inst.eula_accepted;
+    $("#eula-banner").hidden = !!inst.eula_accepted;
+    $("#act-eula-2").disabled = !!inst.eula_accepted;
     $("#act-delete").disabled = running || busy;
   }
+
+  const skey = JSON.stringify([inst.id, inst.software, inst.version, inst.memory_max_mib,
+    inst.memory_initial_mib, inst.online_mode, inst.eula_accepted, inst.jar_path]);
+  if (skey !== state.lastSettings) {
+    state.lastSettings = skey;
+    $("#settings-kv").innerHTML = `
+      <div class="k">Instance ID</div><div class="mono">${esc(inst.id)}</div>
+      <div class="k">Software</div><div>${esc(inst.software)} ${esc(inst.version)}</div>
+      <div class="k">Server JAR</div><div class="mono">${esc(inst.jar_path || "server.jar")}</div>
+      <div class="k">Heap</div><div>${inst.memory_initial_mib}–${inst.memory_max_mib} MiB</div>
+      <div class="k">Online mode</div><div>${inst.online_mode ? "yes" : "no"}</div>
+      <div class="k">EULA</div><div>${inst.eula_accepted ? "accepted" : "not accepted"}</div>
+      <div class="k">Directory</div><div class="mono">instances/${esc(inst.id)}</div>`;
+  }
+}
+
+function switchTab(tab) {
+  state.tab = tab;
+  for (const b of document.querySelectorAll("#tabs button"))
+    b.classList.toggle("active", b.dataset.tab === tab);
+  for (const name of ["console", "files", "backups", "settings"])
+    $("#tab-" + name).hidden = name !== tab;
+  if (tab === "console") loadLogs();
+  if (tab === "files") loadFiles(state.fsPath);
+  if (tab === "backups") loadBackups();
 }
 
 /* ---------- actions ---------- */
 
-async function action(act) {
-  const inst = sel();
+async function action(act, id) {
+  const inst = id ? state.instances.find((i) => i.id === id) : sel();
   if (!inst) return;
   try {
     if (act === "delete") {
       if (!confirm("Delete this server record? Files on disk stay.")) return;
       await api("/api/instances/" + encodeURIComponent(inst.id), { method: "DELETE" });
       toast("Server deleted");
-      state.selected = null;
+      if (state.selected === inst.id) state.selected = null;
+      state.lastHeader = "";
       await loadInstances();
       return;
     }
@@ -562,24 +1036,11 @@ async function action(act) {
   }
 }
 
-function switchTab(tab) {
-  state.tab = tab;
-  for (const b of document.querySelectorAll("#tabs button"))
-    b.classList.toggle("active", b.dataset.tab === tab);
-  $("#tab-logs").style.display = tab === "logs" ? "" : "none";
-  $("#tab-cmd").style.display = tab === "cmd" ? "" : "none";
-  $("#tab-files").style.display = tab === "files" ? "" : "none";
-  $("#tab-backups").style.display = tab === "backups" ? "" : "none";
-  if (tab === "logs") loadLogs();
-  if (tab === "files") loadFiles(state.fsPath);
-  if (tab === "backups") loadBackups();
-}
-
 /* ---------- logs ---------- */
 
 async function loadLogs() {
   const inst = sel();
-  if (!inst || state.tab !== "logs") return;
+  if (!inst || state.tab !== "console") return;
   try {
     const data = await api("/api/instances/" + encodeURIComponent(inst.id) + "/logs");
     const view = $("#log-view");
@@ -636,7 +1097,7 @@ async function loadFiles(path) {
       const cell = tr.querySelector(".actions-cell");
       const b = (label, fn, danger) => {
         const el = document.createElement("button");
-        el.className = "sm" + (danger ? " danger" : "");
+        el.className = "btn sm" + (danger ? " danger" : "");
         el.textContent = label;
         el.addEventListener("click", fn);
         cell.appendChild(el);
@@ -727,10 +1188,11 @@ async function loadBackups() {
       dl.href = "/api/backup/" + encodeURIComponent(inst.id) + "/" +
                 encodeURIComponent(b.id) + "/download";
       dl.textContent = "Download";
+      dl.style.marginRight = "6px";
       cell.appendChild(dl);
       const mk = (label, fn, danger) => {
         const el = document.createElement("button");
-        el.className = "sm" + (danger ? " danger" : "");
+        el.className = "btn sm" + (danger ? " danger" : "");
         el.textContent = label;
         el.addEventListener("click", fn);
         cell.appendChild(el);
@@ -772,12 +1234,33 @@ async function createBackup(full) {
   }
 }
 
+/* ---------- clock ---------- */
+
+function tickClock() {
+  $("#clock").textContent = new Date().toLocaleTimeString();
+}
+
 /* ---------- wiring ---------- */
 
+$("#nav-all").addEventListener("click", () => {
+  state.selected = null;
+  renderSidebar();
+  renderOverview();
+  renderDetail();
+});
+$("#view-toggle").addEventListener("click", (ev) => {
+  const b = ev.target.closest("button[data-view]");
+  if (!b) return;
+  state.view = b.dataset.view;
+  localStorage.setItem("ps5craft.view", state.view);
+  state.lastOverview = "";
+  renderOverview();
+});
 $("#act-start").addEventListener("click", () => action("start"));
 $("#act-stop").addEventListener("click", () => action("stop"));
 $("#act-restart").addEventListener("click", () => action("restart"));
 $("#act-eula").addEventListener("click", () => action("eula"));
+$("#act-eula-2").addEventListener("click", () => action("eula"));
 $("#act-delete").addEventListener("click", () => action("delete"));
 $("#tabs").addEventListener("click", (ev) => {
   const b = ev.target.closest("button[data-tab]");
@@ -832,11 +1315,12 @@ $("#btn-text-save").addEventListener("click", saveEditor);
 
 $("#btn-new").addEventListener("click", () => $("#dlg-new").showModal());
 $("#btn-new-2").addEventListener("click", () => $("#dlg-new").showModal());
+$("#btn-new-3").addEventListener("click", () => $("#dlg-new").showModal());
 $("#form-new").addEventListener("submit", async (ev) => {
   if (ev.submitter && ev.submitter.value === "cancel") return;
   ev.preventDefault();
   try {
-    await api("/api/instances", {
+    const created = await api("/api/instances", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -849,14 +1333,19 @@ $("#form-new").addEventListener("submit", async (ev) => {
     $("#dlg-new").close();
     toast("Server created");
     await loadInstances();
+    if (created && created.id) openServer(created.id);
   } catch (e) {
     toast(e.message, true);
   }
 });
 
+tickClock();
+setInterval(tickClock, 1000);
 loadInstances();
+loadSystem();
 setInterval(loadInstances, 2000);
-setInterval(() => { if (state.tab === "logs") loadLogs(); }, 2000);
+setInterval(loadSystem, 15000);
+setInterval(() => { if (state.tab === "console" && state.selected) loadLogs(); }, 2000);
 </script>
 </body>
 </html>

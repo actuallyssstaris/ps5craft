@@ -83,6 +83,15 @@ struct tm *gmtime_r(const time_t *timep, struct tm *result) {
     return result;
 }
 
+/* PS5 libc exports localtime_s with the same shape as localtime_r, but the
+   public SDK header does not declare it. */
+extern "C" struct tm *localtime_s(const time_t *timep, struct tm *result);
+
+struct tm *localtime_r(const time_t *timep, struct tm *result) {
+    if (!timep || !result) return 0;
+    return localtime_s(timep, result);
+}
+
 /* Exception entry points referenced by libc++abi but never reached
    because the title is built with -fno-exceptions. Provided so the link
    completes; they abort if somehow invoked. */

@@ -20,6 +20,8 @@ class Backend {
 public:
     explicit Backend(std::string data_root);
 
+    const std::string &data_root() const { return sandbox_.root(); }
+
     /* Create a new instance from config. Returns instance id. */
     std::string create_instance(InstanceConfig config);
 
@@ -63,7 +65,10 @@ public:
     bool backup_remove(const std::string &instance_id,
                        const std::string &backup_id);
 
+    std::uint64_t instance_disk_bytes(const std::string &id);
+
     Sandbox &sandbox() { return sandbox_; }
+    const Sandbox &sandbox() const { return sandbox_; }
 
 private:
     Sandbox sandbox_;
@@ -71,6 +76,8 @@ private:
     mutable std::mutex mutex_;
     std::unordered_map<std::string, std::unique_ptr<Instance>> instances_;
     std::vector<std::string> order_; /* creation order */
+    /* Directory size is expensive on big worlds; cache it briefly. */
+    std::unordered_map<std::string, std::pair<std::int64_t, std::uint64_t>> disk_cache_;
 
     /* Registry persistence: <root>/instances.json. Caller holds mutex_. */
     void load_registry();

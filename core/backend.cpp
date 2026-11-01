@@ -140,8 +140,21 @@ bool Backend::remove_instance(const std::string &id) {
     }
     instances_.erase(it);
     order_.erase(std::find(order_.begin(), order_.end(), id), order_.end());
+    disk_cache_.erase(id);
     save_registry();
     return true;
+}
+
+std::uint64_t Backend::instance_disk_bytes(const std::string &id) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (!instances_.count(id)) return 0;
+    const std::int64_t now = static_cast<std::int64_t>(std::time(nullptr));
+    auto cached = disk_cache_.find(id);
+    if (cached != disk_cache_.end() && now - cached->second.first < 30)
+        return cached->second.second;
+    const std::uint64_t bytes = sandbox_.tree_size("instances/" + id);
+    disk_cache_[id] = {now, bytes};
+    return bytes;
 }
 
 Instance *Backend::instance(const std::string &id) {

@@ -43,6 +43,14 @@ private:
     std::string root_;
 };
 
+struct DiskSpace {
+    std::uint64_t total = 0;   /* bytes */
+    std::uint64_t free = 0;    /* bytes available to this process */
+};
+
+/* Capacity of the filesystem holding path. False when statvfs fails. */
+bool fs_disk_space(const std::string &path, DiskSpace &out);
+
 bool fs_mkdirs(const std::string &path);
 bool fs_remove_tree(const std::string &path);
 bool fs_read_file(const std::string &path, std::string &out);
