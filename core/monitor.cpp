@@ -7,7 +7,6 @@
 #include <cstdio>
 #include <cstring>
 #include <ifaddrs.h>
-#include <sstream>
 #include <sys/time.h>
 #include <time.h>
 #include <unistd.h>
@@ -101,20 +100,27 @@ CpuSample cpu_sample() {
     CpuSample s;
     std::string text;
     if (!read_file("/proc/self/stat", text)) return s;
-    std::size_t end = text.rfind(')');
-    if (end == std::string::npos) return s;
-    std::istringstream iss(text.substr(end + 2));
-    long state, ppid, pgrp, session, tty_nr, tpgid, flags;
-    long minflt, cminflt, majflt, cmajflt;
-    std::uint64_t utime, stime;
-    long cutime, cstime, priority, nice, num_threads, itrealvalue;
-    long long starttime;
-    if (iss >> state >> ppid >> pgrp >> session >> tty_nr >> tpgid >> flags >>
-          minflt >> cminflt >> majflt >> cmajflt >> utime >> stime >>
-          cutime >> cstime >> priority >> nice >> num_threads >> itrealvalue >>
-          starttime) {
-        s.utime_ticks = utime;
-        s.stime_ticks = stime;
+    /* Fields after the parenthesised comm: state is field 3, utime 14,
+       stime 15. Parsed by hand: libc++ streams drag in locale internals the
+       PS5 libc does not provide. */
+    std::size_t pos = text.rfind(')');
+    if (pos == std::string::npos) return s;
+    ++pos;
+    int field = 3;
+    while (field <= 15) {
+        while (pos < text.size() && text[pos] == ' ') ++pos;
+        const std::size_t start = pos;
+        while (pos < text.size() && text[pos] != ' ' && text[pos] != '\n') ++pos;
+        if (start == pos) return s;
+        if (field == 14 || field == 15) {
+            std::uint64_t v = 0;
+            for (std::size_t i = start; i < pos; ++i) {
+                if (text[i] < '0' || text[i] > '9') return s;
+                v = v * 10 + static_cast<std::uint64_t>(text[i] - '0');
+            }
+            (field == 14 ? s.utime_ticks : s.stime_ticks) = v;
+        }
+        ++field;
     }
     struct timespec ts;
     if (clock_gettime(CLOCK_MONOTONIC, &ts) == 0)
