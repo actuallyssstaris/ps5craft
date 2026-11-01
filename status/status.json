@@ -1,8 +1,8 @@
 {
   "project": "PS5Craft",
   "tagline": "PS5 Minecraft Java server manager",
-  "updated": "2026-11-01T17:10:00Z",
-  "overall_percent": 80,
+  "updated": "2026-11-01T18:05:00Z",
+  "overall_percent": 82,
   "links": [
     {
       "label": "Live dashboard",
@@ -16,9 +16,9 @@
   "eta": {
     "core_host_verified": "done",
     "ps5_native_binary": "built & signed; installable title folder at dist/PPSA90104.",
-    "note": "Monitoring done. Remaining: PS5 console run of Vanilla 26.3 on Java 25, then native Vulkan UI."
+    "note": "Monitoring, CA bundle, catalog UI and host runs are done. Next: build in GitHub Actions instead of this host, then PS5 console run of Vanilla 26.3 on bundled Java 25."
   },
-  "state": "Monitoring implemented: read-only measured values from /proc and getifaddrs (process RSS/VMS, system MemTotal/MemAvailable, process CPU %, local IPs minus loopback), exposed on GET /api/system under `monitor`. Absent if unreadable, never simulated. Catalog UI + CA bundle done. Remaining: console verification, native Vulkan UI.",
+  "state": "Backend, dashboard and catalog complete and host-verified: Vanilla 1.21.11, Paper 1.21.11 and Fabric 1.21.11 each installed through the API with checksum verification, started, answered console commands and stopped cleanly. Monitoring exposes measured /proc and getifaddrs values only. Builds move to GitHub Actions. Remaining: console verification, native Vulkan UI.",
   "phases": [
     {
       "id": 1,
@@ -63,6 +63,14 @@
     }
   ],
   "todo": [
+    {
+      "done": false,
+      "text": "Build host + PS5 title in GitHub Actions (no local builds)"
+    },
+    {
+      "done": false,
+      "text": "PS5 console run: install dist/PPSA90104 under /data/homebrew/, start Vanilla 26.3 on bundled Java 25"
+    },
     {
       "done": true,
       "text": "Ship PS5 CA bundle (ca-bundle.crt) so catalog HTTPS works on console"
@@ -124,12 +132,12 @@
       "text": "Real Vanilla 1.21.11 run on host: start, command, backup, restore, stop"
     },
     {
-      "done": false,
-      "text": "Dashboard catalog picker and install progress"
+      "done": true,
+      "text": "Dashboard catalog picker and install progress (SmartTube-style dialog)"
     },
     {
-      "done": false,
-      "text": "Host integration test with a real Minecraft server JAR"
+      "done": true,
+      "text": "Host integration test with real JARs: Vanilla, Paper, Fabric 1.21.11"
     },
     {
       "done": false,
