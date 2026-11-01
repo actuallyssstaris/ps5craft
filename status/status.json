@@ -1,7 +1,7 @@
 {
   "project": "PS5Craft",
   "tagline": "PS5 Minecraft Java server manager",
-  "updated": "2026-11-01T22:25:00Z",
+  "updated": "2026-11-01T22:45:00Z",
   "overall_percent": 86,
   "links": [
     {
@@ -16,9 +16,10 @@
   "eta": {
     "core_host_verified": "done",
     "ps5_native_binary": "Built and signed in GitHub Actions (workflow `PS5 title`), artifact `PPSA90104`.",
-    "note": "Version 1 done on host; remaining is console verification (install + run on PS5). Native Vulkan UI is version 2."
+    "note": "Version 1 done. Remaining: console verification (install dist/PPSA90104 under /data/homebrew/, run Vanilla 26.3 on bundled Java 25). Native Vulkan UI is version 2.",
+    "console_access": "blocked: PS5 console unreachable from this host"
   },
-  "state": "Version 1 feature complete: lifecycle, console commands, file manager with upload, backups, catalog install with checksum verification, measured monitoring on /api/system. Host-verified: Vanilla 1.21.11, Paper 1.21.11, Fabric 1.21.11 each installed via the API, started, answered commands, stopped cleanly. PS5 title builds clean in GitHub Actions (e2e2... artifact PPSA90104). Dashboard bind address: http://10.15.175.8:8080/ (host build), status page http://10.15.175.8:8090/.",
+  "state": "Version 1 feature complete on the host and in GitHub Actions: lifecycle, console commands, file manager with upload, backups, catalog install with checksum verification, measured monitoring on /api/system. PS5 title built + signed (dist/PPSA90104/, eboot.bin sha256 c37635f7...). Console verification not yet executed \u2014 the PS5 console is not reachable from this host (elfldr 192.168.2.15:9021, FTP 2121, Remote Play all unreachable). Title artifact and runbook are ready; console verification requires console access.",
   "phases": [
     {
       "id": 1,
@@ -69,7 +70,7 @@
     },
     {
       "done": false,
-      "text": "PS5 console run: install dist/PPSA90104 under /data/homebrew/, start Vanilla 26.3 on bundled Java 25"
+      "text": "PS5 console run: install dist/PPSA90104 under /data/homebrew/, start Vanilla 26.3 on bundled Java 25 (blocked: console unreachable)"
     },
     {
       "done": true,

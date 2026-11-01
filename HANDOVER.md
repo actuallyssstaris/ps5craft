@@ -4,11 +4,36 @@
 
 Repo: `https://github.com/actuallyssstaris/ps5craft` (public, branch `main`)
 Title ID: `PPSA90104`
-Overall: **~78%**. Core backend, real process supervision, backups, console/logs, persistence, the dashboard, the server catalog API and the SmartTube-style catalog UI (software/version picker, install with progress, hash verification) are implemented and host-tested. PS5 title builds + signs into `dist/PPSA90104/`.
+Overall: **~86%**. Core backend, real process supervision, backups, console/logs, persistence, the dashboard, the server catalog API and the SmartTube-style catalog UI (software/version picker, install with progress, hash verification), measured monitoring on `GET /api/system` — all host-tested. PS5 title builds + signs in GitHub Actions into `dist/PPSA90104/`.
+
+Version 1 (web dashboard only) is feature complete. Remaining: console verification — install + run on the PS5.
 
 Live pages from the development device:
 - Dashboard: `http://10.15.175.8:8080/` (host build of the same HTTP API)
 - Build status: `http://10.15.175.8:8090/`
+
+Title artifact (latest successful build):
+- `dist/PPSA90104/` — `eboot.bin` sha256 `c37635f72204efd261ac43bd906760605699818cf224bc3ff406060dab2b22e0`, `sce_sys/param.json` (title ID `PPSA90104`), `sce_module/libc.prx`, `assets/ca-bundle.crt`
+
+## Console verification runbook
+
+This has not been executed yet — the PS5 console is not reachable from this host (elfldr `192.168.2.15:9021` and FTP `2121` do not answer, Remote Play session not live). Run these steps from a machine with console access:
+
+1. **Copy the title.** Transfer the whole `dist/PPSA90104/` folder to the console. Console FTP is read-only, so use the homebrew launcher / elfldr upload, not FTP. Target: `/data/homebrew/PPSA90104/` (the rule: every title file must live under `/data/homebrew/<TITLEID>/` or `/data/PlayKit/`).
+
+2. **Place the CA bundle.** Copy `assets/ca-bundle.crt` to `<data root>/ca-bundle.crt` (wherever `PS5CRAFT_DATA_ROOT` points, e.g. `/download0/PS5Craft/`) or set `PS5CRAFT_CA_BUNDLE`. Without it, catalog HTTPS downloads fail — `main()` prints a clear notice at startup.
+
+3. **Launch the title.** Start `PPSA90104` from the homebrew launcher. It runs the shared backend + HTTP API on port 8080 (default). `main()` prints the data root and the CA-bundle notice to stderr.
+
+4. **Verify from another machine.** Open `http://<console-ip>:8080/`. You should see the dashboard with no instances yet.
+
+5. **Install a server.** Catalog → Vanilla → 26.3 (or any listed release) → Install. Watch progress. Hash verified before the JAR is moved into place. Fabric/Paper also listed; only Vanilla, Fabric, Paper are installable.
+
+6. **Start the server.** Click Start. Watch the log until `Done (<N>s)!`. Open the Minecraft client on LAN and connect to `<console-ip>:25565`. Run `list` via the dashboard command box; it should answer.
+
+7. **Stop cleanly.** Click Stop. Instance exits 0, TCP 25565 closes. Run a live world backup → verify it downloads → restore → verify world files present.
+
+If any step fails, check `stderr` from step 3 for the CA-bundle notice and libcurl errors; `/api/system` reports measured memory/CPU/IPs only (never simulated).
 
 ## What works (host-verified)
 
