@@ -59,5 +59,5 @@ clean:
 	rm -rf build dist
 
 app:
-	PS5_PAYLOAD_SDK=$${PS5_PAYLOAD_SDK:-/root/projects/PlaySurf/.deps/native/ps5-payload-sdk} \
+	PS5_PAYLOAD_SDK=$${PS5_PAYLOAD_SDK:-$(CURDIR)/.deps/native/ps5-payload-sdk} \
 	  tools/build_ps5.sh

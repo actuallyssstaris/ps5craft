@@ -7,8 +7,8 @@ Title ID: `PPSA90104`
 Overall: **~78%**. Core backend, real process supervision, backups, console/logs, persistence, the dashboard, the server catalog API and the SmartTube-style catalog UI (software/version picker, install with progress, hash verification) are implemented and host-tested. PS5 title builds + signs into `dist/PPSA90104/`.
 
 Live pages from the development device:
-- Dashboard: `http://192.0.0.4:8080/` (host build of the same HTTP API)
-- Build status: `http://192.0.0.4:8090/`
+- Dashboard: `http://10.15.175.8:8080/` (host build of the same HTTP API)
+- Build status: `http://10.15.175.8:8090/`
 
 ## What works (host-verified)
 
@@ -142,16 +142,42 @@ Demo data lives in `/tmp/ps5craft_demo`. The `Demo Server` instance uses `tests/
    host. No hand-rolled TLS, no shelling out to `curl`/`wget`/`jq`.
 7. **Graphics.** Native Vulkan UI still blocked (see Blockers).
 
+## Builds run on GitHub
+
+The dev host no longer builds anything. Two workflows do it:
+
+- `.github/workflows/ci.yml` — host build plus unit tests on every push and PR;
+  uploads `ps5craft_host`, `ps5craft_test`, `ps5craft_http` as artifacts.
+- `.github/workflows/ps5.yml` — fetches the pinned PS5 payload SDK (v0.42) and
+  pacbrew sysroot (v0.40.2), both verified by SHA-256, then builds and signs
+  `dist/PPSA90104` and uploads the installable folder as an artifact.
+
+Local builds still work if the dependencies are present:
+
+```sh
+make host && make test
+make app   # needs .deps/native/ps5-payload-sdk and .deps/pacbrew/sysroot/user/homebrew
+```
+
+`tools/build_ps5.sh` takes both paths from the environment:
+`PS5_PAYLOAD_SDK` and `PS5CRAFT_PACBREW`.
+
+## Version 1 scope
+
+Version 1 is the web dashboard as the only control surface: server lifecycle,
+console commands, file manager, backups, catalog install, monitoring. It runs
+the same backend the title runs.
+
+Version 2 adds the native Vulkan UI on top of that same backend. Nothing in the
+backend changes for it.
+
 ## Next steps in order
 
-1. **PS5 CA bundle** — shipped as `assets/ca-bundle.crt` (Mozilla bundle) and copied into `dist/PPSA90104/assets/` by the build. On console the operator places it at `<data root>/ca-bundle.crt` or sets `PS5CRAFT_CA_BUNDLE`. `main()` prints a clear notice if neither is present so catalog HTTPS failures are explicit, not silent. On console the operator places it at `<data root>/ca-bundle.crt` or sets `PS5CRAFT_CA_BUNDLE`. `main()` prints a notice if neither is present so catalog HTTPS failures are explicit, not silent.
-3. **Monitoring** — CPU/memory/storage, read-only, only values the console
-   can measure.
-4. **Console verification** — install the signed title, run a Vanilla
-   26.3 server with the bundled Java 25, open the dashboard from another
-   machine.
-5. **Native Vulkan UI** — once the pinned PS5_PayloadSDK fork and RADV
-   archive are available.
+1. **Console verification** — install the signed title under
+   `/data/homebrew/PPSA90104/`, run a Vanilla server with the bundled Java 25,
+   open the dashboard from another machine.
+2. **Version 2: native Vulkan UI** — DualSense-driven, same backend, once the
+   pinned PS5_PayloadSDK fork and RADV archive are available.
 
 ## Blockers
 

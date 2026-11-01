@@ -1,0 +1,60 @@
+name: PS5 title
+
+# Builds and signs the installable title folder. Runs on every push to main
+# and on demand. Both dependency archives are pinned by SHA-256 so a changed
+# upstream asset fails the job instead of silently changing the binary.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  title:
+    name: Build and sign PPSA90104
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            clang-18 lld-18 zlib1g-dev unzip wget
+
+      - name: Fetch pinned PS5 payload SDK (v0.42)
+        run: |
+          mkdir -p .deps/native
+          wget -q -O /tmp/sdk.zip \
+            https://github.com/ps5-payload-dev/sdk/releases/download/v0.42/ps5-payload-sdk.zip
+          echo "8cfbc7cd5811e719eb4f0c47eea668d3dc7b40bc8ab11c4a5031d40c23ec02da  /tmp/sdk.zip" \
+            | sha256sum --check --strict
+          unzip -q /tmp/sdk.zip -d .deps/native
+          test -x .deps/native/ps5-payload-sdk/bin/prospero-lld
+
+      - name: Fetch pinned pacbrew sysroot (v0.40.2)
+        run: |
+          wget -q -O /tmp/pacbrew.tar.gz \
+            https://github.com/ps5-payload-dev/pacbrew-repo/releases/download/v0.40.2/ps5-payload-dev.tar.gz
+          echo "a85f65de418a8e6a898c6c3e3c870d50fff7618a200e4dd59ea9692af6ecec4d  /tmp/pacbrew.tar.gz" \
+            | sha256sum --check --strict
+          mkdir -p /tmp/pacbrew
+          tar -xzf /tmp/pacbrew.tar.gz -C /tmp/pacbrew
+          prefix=/tmp/pacbrew/opt/ps5-payload-sdk/target/user/homebrew
+          test -f "$prefix/lib/libcurl.a"
+          test -f "$prefix/lib/libmicrohttpd.a"
+          echo "PS5CRAFT_PACBREW=$prefix" >> "$GITHUB_ENV"
+
+      - name: Build and sign
+        env:
+          PS5_PAYLOAD_SDK: ${{ github.workspace }}/.deps/native/ps5-payload-sdk
+        run: |
+          chmod +x tools/prospero-clang18 tools/build_ps5.sh
+          tools/build_ps5.sh
+
+      - name: Upload title folder
+        uses: actions/upload-artifact@v4
+        with:
+          name: PPSA90104
+          path: dist/PPSA90104
+          if-no-files-found: error

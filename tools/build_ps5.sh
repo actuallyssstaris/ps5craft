@@ -6,15 +6,19 @@
 #
 # Requires: PS5_PAYLOAD_SDK set to a PS5 payload SDK tree containing
 #           target/lib/*.so stubs and prospero-lld.
+#           PS5CRAFT_PACBREW set to the pacbrew sysroot user/homebrew prefix
+#           (static libmicrohttpd, libcurl, OpenSSL, zlib).
 #
-#   PS5_PAYLOAD_SDK=/path/to/sdk tools/build_ps5.sh
+#   PS5_PAYLOAD_SDK=/path/to/sdk \
+#   PS5CRAFT_PACBREW=/path/to/pacbrew/sysroot/user/homebrew \
+#     tools/build_ps5.sh
 #
 # Output: dist/PPSA90104/  (installable title folder)
 
 set -euo pipefail
 
 root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
-sdk="${PS5_PAYLOAD_SDK:-/root/projects/PlaySurf/.deps/native/ps5-payload-sdk}"
+sdk="${PS5_PAYLOAD_SDK:-$root/.deps/native/ps5-payload-sdk}"
 [[ -d $sdk ]] || { echo "PS5_PAYLOAD_SDK not found at $sdk" >&2; exit 2; }
 [[ -x $sdk/bin/prospero-lld ]] || { echo "prospero-lld missing" >&2; exit 2; }
 
@@ -25,7 +29,8 @@ dist="$root/dist/$title_id"
 native="$root/tooling/native"
 CLANG="$root/tools/prospero-clang18"
 LLD="$sdk/bin/prospero-lld"
-pacbrew="/root/projects/PlaySurf/.deps/pacbrew/v0.40.2/sysroot/user/homebrew"
+pacbrew="${PS5CRAFT_PACBREW:-$root/.deps/pacbrew/sysroot/user/homebrew}"
+[[ -d $pacbrew ]] || { echo "PS5CRAFT_PACBREW not found at $pacbrew" >&2; exit 2; }
 
 mkdir -p "$build/obj" "$dist"
 

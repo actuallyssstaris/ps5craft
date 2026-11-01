@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  host:
+    name: Host build and tests
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install host dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libmicrohttpd-dev libcurl4-openssl-dev
+
+      - name: Build
+        run: make host
+
+      - name: Unit tests
+        run: make test
+
+      - name: Upload host binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: ps5craft-host
+          path: |
+            build/host/ps5craft_host
+            build/host/ps5craft_test
+            build/host/ps5craft_http
+          if-no-files-found: error
