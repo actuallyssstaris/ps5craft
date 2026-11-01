@@ -2,6 +2,8 @@
 #include "monitor.hpp"
 
 #include <arpa/inet.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
 #include <cstdio>
 #include <cstring>
 #include <ifaddrs.h>
