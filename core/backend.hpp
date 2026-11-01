@@ -11,6 +11,7 @@
 #include "instance.hpp"
 #include "json.hpp"
 #include "fs.hpp"
+#include "backup.hpp"
 #include "../platform/process.hpp"
 
 namespace ps5craft {
@@ -35,6 +36,15 @@ public:
 
     /* Poll all instances for process exits; updates state to running/crashed. */
     void poll_all();
+
+    /* Recent process output for one instance (empty when unknown). */
+    std::string instance_logs(const std::string &id) const;
+
+    /* Send one command line to the server stdin. */
+    bool instance_command(const std::string &id, const std::string &line);
+
+    /* Write eula=true for an instance and persist the flag. */
+    bool accept_eula(const std::string &id);
 
     Json status_snapshot() const;
 
@@ -61,6 +71,10 @@ private:
     mutable std::mutex mutex_;
     std::unordered_map<std::string, std::unique_ptr<Instance>> instances_;
     std::vector<std::string> order_; /* creation order */
+
+    /* Registry persistence: <root>/instances.json. Caller holds mutex_. */
+    void load_registry();
+    void save_registry() const;
 };
 
 } // namespace ps5craft

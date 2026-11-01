@@ -11,18 +11,23 @@ namespace ps5craft {
 
 struct ZipEntry {
     std::string name;       /* path within archive, forward slashes */
-    std::string data;       /* file contents */
+    std::string data;       /* file contents (STORE) */
     bool directory = false;
 };
 
-/* Write a ZIP archive to out. Returns true on success. */
+/* Write a ZIP archive to out_path. Returns true on success. */
 bool zip_write(const std::string &out_path,
                const std::vector<ZipEntry> &entries);
 
-/* List entries in a ZIP archive (names only). */
+/* List file entries in a ZIP archive (names only, newest format STORE). */
 std::vector<std::string> zip_list(const std::string &zip_path);
 
-/* Extract a ZIP archive to dest_dir. Returns true on success. */
+/* Read one entry's contents. Returns false when absent or unsupported. */
+bool zip_read_entry(const std::string &zip_path, const std::string &name,
+                    std::string &out, std::uint64_t max_bytes);
+
+/* Extract a STORE-method ZIP archive to dest_dir. Rejects entry names that
+   escape dest_dir. Returns true on success. */
 bool zip_extract(const std::string &zip_path, const std::string &dest_dir);
 
 } // namespace ps5craft

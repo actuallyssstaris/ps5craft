@@ -113,6 +113,7 @@ int process_spawn(const std::vector<std::string> &argv,
     /* parent */
     close(out_pipe[1]);
     close(in_pipe[0]);
+    set_nonblock(in_pipe[1]);
     g_pipe_fd[static_cast<int>(pid)] = out_pipe[0];
     g_stdin_fd[static_cast<int>(pid)] = in_pipe[1];
     result.started_at = 0; /* set by caller */
@@ -174,8 +175,16 @@ int process_waitpid(int pid, int *status, int options, ProcessResult &result) {
     }
     if (reaped == 0) return 0; /* still running (WNOHANG) */
     /* reaped */
-    g_pipe_fd.erase(pid);
-    g_stdin_fd.erase(pid);
+    auto pipe_it = g_pipe_fd.find(pid);
+    if (pipe_it != g_pipe_fd.end()) {
+        close(pipe_it->second);
+        g_pipe_fd.erase(pipe_it);
+    }
+    auto in_it = g_stdin_fd.find(pid);
+    if (in_it != g_stdin_fd.end()) {
+        close(in_it->second);
+        g_stdin_fd.erase(in_it);
+    }
     if (WIFEXITED(*status)) {
         result.exit_code = WEXITSTATUS(*status);
         result.signaled = false;

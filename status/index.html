@@ -37,6 +37,8 @@
     display: inline-block; font-size: 12px; padding: 2px 9px; border-radius: 999px;
     border: 1px solid var(--line); color: var(--dim); margin-right: 6px;
   }
+  a.pill { color: var(--accent); text-decoration: none; border-color: #244a63; }
+  a.pill:hover { border-color: var(--accent); }
   h2 { font-size: 14px; text-transform: uppercase; letter-spacing: .09em; color: var(--dim);
        margin: 34px 0 12px; font-weight: 600; }
   .phases { display: grid; gap: 10px; }
@@ -126,7 +128,9 @@ async function load() {
   const total = d.todo.length, done = d.todo.filter(t => t.done).length;
   document.getElementById('meta').innerHTML =
     `<span class="pill">todo ${done}/${total}</span>` +
-    `<span class="pill">updated ${esc(new Date(d.updated).toLocaleString())}</span>`;
+    `<span class="pill">updated ${esc(new Date(d.updated).toLocaleString())}</span>` +
+    (d.links || []).map(l =>
+      `<a class="pill" href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.label)}</a>`).join('');
 
   document.getElementById('eta').innerHTML = Object.entries(d.eta)
     .map(([k, v]) => `<div><b>${esc(k.replace(/_/g, ' '))}</b><span>${esc(v)}</span></div>`).join('');

@@ -1,19 +1,22 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 #include "backup.hpp"
-#include "backend.hpp"
-#include "instance.hpp"
 
+#include <algorithm>
 #include <cstdio>
 #include <cstring>
 #include <ctime>
-#include <algorithm>
 #include <dirent.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include "instance.hpp"
+#include "../platform/process.hpp"
+
 namespace ps5craft {
 
 namespace {
+
+constexpr const char *kManifestName = "__ps5craft_backup.json";
 
 std::string now_iso_file() {
     time_t t = time(nullptr);
@@ -39,129 +42,151 @@ bool read_file(const std::string &path, std::string &out) {
     return true;
 }
 
+/* Extract a JSON string or boolean field without pulling in the parser. */
+bool manifest_full(const std::string &text) {
+    std::size_t pos = text.find("\"full\"");
+    if (pos == std::string::npos) return false;
+    pos = text.find(':', pos);
+    if (pos == std::string::npos) return false;
+    ++pos;
+    while (pos < text.size() &&
+           (text[pos] == ' ' || text[pos] == '\t' || text[pos] == '\n'))
+        ++pos;
+    return text.compare(pos, 4, "true") == 0;
+}
+
 } // namespace
 
-BackupManager::BackupManager(Sandbox &sandbox, Backend &backend)
-    : sandbox_(sandbox), backend_(backend) {}
+BackupManager::BackupManager(Sandbox &sandbox) : sandbox_(sandbox) {}
+
+const char *BackupManager::manifest_name() { return kManifestName; }
 
 std::string BackupManager::now_id() const { return now_iso_file(); }
 
-bool BackupManager::save_pause(Instance *inst) {
-    if (!inst) return true;
-    if (inst->state() != InstanceState::kRunning) return true;
-    /* The server object owns the pid; expose send via backend is not available,
-       so use process_write directly on the instance pid. We need the pid. */
-    int pid = static_cast<int>(inst->pid());
-    if (pid <= 0) return true;
-    const char *cmd = "save-off\n";
-    process_write(pid, cmd, std::strlen(cmd));
-    /* Give the server a moment to process. */
-    usleep(500000);
-    return true;
+void BackupManager::save_pause(const Instance &inst) {
+    if (inst.state() != InstanceState::kRunning) return;
+    int pid = static_cast<int>(inst.pid());
+    if (pid <= 0) return;
+    const char *off = "save-off\n";
+    process_write(pid, off, std::strlen(off));
+    const char *flush = "save-all flush\n";
+    process_write(pid, flush, std::strlen(flush));
+    /* Give the server time to write chunks to disk. */
+    usleep(750000);
 }
 
-bool BackupManager::save_resume(Instance *inst) {
-    if (!inst) return true;
-    if (inst->state() != InstanceState::kRunning) return true;
-    int pid = static_cast<int>(inst->pid());
-    if (pid <= 0) return true;
-    const char *cmd = "save-on\n";
-    process_write(pid, cmd, std::strlen(cmd));
-    return true;
+void BackupManager::save_resume(const Instance &inst) {
+    if (inst.state() != InstanceState::kRunning) return;
+    int pid = static_cast<int>(inst.pid());
+    if (pid <= 0) return;
+    const char *on = "save-on\n";
+    process_write(pid, on, std::strlen(on));
 }
 
-bool BackupManager::zip_directory(const std::string &dir,
+bool BackupManager::zip_directory(const std::string &abs_dir,
+                                  const std::string &rel,
                                   std::vector<ZipEntry> &entries) {
-    DIR *d = opendir(dir.c_str());
+    DIR *d = opendir(abs_dir.c_str());
     if (!d) return false;
+    bool ok = true;
     while (struct dirent *e = readdir(d)) {
         if (!std::strcmp(e->d_name, ".") || !std::strcmp(e->d_name, ".."))
             continue;
-        std::string full = dir + "/" + e->d_name;
+        std::string full = abs_dir + "/" + e->d_name;
+        std::string child_rel = rel.empty() ? e->d_name : rel + "/" + e->d_name;
         struct stat info {};
         if (lstat(full.c_str(), &info) != 0) continue;
-        std::string rel = e->d_name;
         if (S_ISDIR(info.st_mode)) {
             ZipEntry de;
-            de.name = rel + "/";
+            de.name = child_rel + "/";
             de.directory = true;
             entries.push_back(de);
-            zip_directory(full, entries);
+            if (!zip_directory(full, child_rel, entries)) ok = false;
         } else if (S_ISREG(info.st_mode)) {
             ZipEntry fe;
-            fe.name = rel;
-            if (read_file(full, fe.data)) entries.push_back(fe);
+            fe.name = child_rel;
+            if (!read_file(full, fe.data)) { ok = false; continue; }
+            entries.push_back(std::move(fe));
         }
+        /* Symlinks and specials are deliberately skipped. */
     }
     closedir(d);
-    return true;
+    return ok;
 }
 
-std::string BackupManager::create(const std::string &instance_id, bool full) {
-    Instance *inst = backend_.instance(instance_id);
-    if (!inst) return std::string();
+std::string BackupManager::create(Instance &inst, bool full) {
+    const std::string instance_id = inst.config().id;
+    const std::string workdir = inst.config().workdir;
+    if (instance_id.empty() || workdir.empty()) return std::string();
 
-    std::string workdir = inst->config().workdir;
-    if (workdir.empty()) return std::string();
+    std::string source =
+        full ? workdir : (workdir + "/world");
+    if (!sandbox_.exists(source)) return std::string();
 
-    /* Save-aware: pause auto-save and flush if running. */
+    std::string abs_source;
+    if (!sandbox_.resolve(source, abs_source)) return std::string();
+
     save_pause(inst);
 
-    std::string source = full ? workdir : workdir + "/world";
-    if (!sandbox_.exists(source)) {
-        save_resume(inst);
-        return std::string(); /* nothing to back up */
-    }
-
     std::vector<ZipEntry> entries;
-    if (!zip_directory(source, entries)) {
-        save_resume(inst);
-        return std::string();
-    }
-
-    std::string id = now_id();
-    std::string backup_dir = "backups/" + instance_id;
-    if (!sandbox_.mkdirs(backup_dir)) {
-        save_resume(inst);
-        return std::string();
-    }
-    std::string zip_path = backup_dir + "/" + id + ".zip";
-    std::string abs_zip;
-    if (!sandbox_.resolve(zip_path, abs_zip)) {
-        save_resume(inst);
-        return std::string();
-    }
-
-    if (!zip_write(abs_zip, entries)) {
-        save_resume(inst);
-        return std::string();
+    bool ok = zip_directory(abs_source, "", entries);
+    if (ok) {
+        char created[40];
+        std::time_t t = std::time(nullptr);
+        struct tm tm {};
+        gmtime_r(&t, &tm);
+        std::strftime(created, sizeof created, "%Y-%m-%dT%H:%M:%SZ", &tm);
+        ZipEntry manifest;
+        manifest.name = kManifestName;
+        manifest.data = std::string("{\"full\":") +
+                        (full ? "true" : "false") +
+                        ",\"created\":\"" + created +
+                        "\",\"instance\":\"" + instance_id + "\"}";
+        entries.push_back(std::move(manifest));
     }
 
     save_resume(inst);
 
+    if (!ok || entries.size() < 2) return std::string();
+
+    std::string backup_dir = backups_root(instance_id);
+    if (!sandbox_.mkdirs(backup_dir)) return std::string();
+
+    std::string id = now_id();
+    std::string zip_rel = backup_dir + "/" + id + ".zip";
+    std::string abs_zip;
+    if (!sandbox_.resolve(zip_rel, abs_zip)) return std::string();
+    if (!zip_write(abs_zip, entries)) return std::string();
+
+    /* Verify the archive before reporting success. */
+    if (zip_list(abs_zip).empty()) {
+        sandbox_.remove(zip_rel);
+        return std::string();
+    }
     return id;
 }
 
-std::vector<BackupInfo> BackupManager::list(const std::string &instance_id) const {
+std::vector<BackupInfo> BackupManager::list(
+    const std::string &instance_id) const {
     std::vector<BackupInfo> out;
-    std::string backup_dir = "backups/" + instance_id;
+    std::string backup_dir = backups_root(instance_id);
     std::vector<FileEntry> files;
     if (!sandbox_.list(backup_dir, files)) return out;
     for (const auto &f : files) {
-        if (!f.directory && f.name.size() > 4 &&
-            f.name.compare(f.name.size() - 4, 4, ".zip") == 0) {
-            BackupInfo info;
-            info.id = f.name.substr(0, f.name.size() - 4);
-            info.file_name = f.name;
-            info.path = backup_dir + "/" + f.name;
-            info.size = f.size;
-            info.modified = f.modified;
-            info.instance_id = instance_id;
-            info.full = false;
-            out.push_back(info);
-        }
+        if (f.directory || f.name.size() <= 4) continue;
+        if (f.name.compare(f.name.size() - 4, 4, ".zip") != 0) continue;
+        BackupInfo info;
+        info.id = f.name.substr(0, f.name.size() - 4);
+        info.file_name = f.name;
+        info.path = backup_dir + "/" + f.name;
+        info.size = f.size;
+        info.modified = f.modified;
+        info.instance_id = instance_id;
+        std::string abs_zip;
+        if (sandbox_.resolve(info.path, abs_zip))
+            info.full = read_manifest(abs_zip, info.full) ? info.full : false;
+        out.push_back(std::move(info));
     }
-    /* Newest first. */
     std::sort(out.begin(), out.end(),
               [](const BackupInfo &a, const BackupInfo &b) {
                   return a.modified > b.modified;
@@ -169,47 +194,64 @@ std::vector<BackupInfo> BackupManager::list(const std::string &instance_id) cons
     return out;
 }
 
+bool BackupManager::read_manifest(const std::string &abs_zip,
+                                  bool &full) const {
+    std::string text;
+    if (!zip_read_entry(abs_zip, kManifestName, text, 4096)) return false;
+    full = manifest_full(text);
+    return true;
+}
+
 bool BackupManager::restore(const std::string &instance_id,
+                            const std::string &workdir,
                             const std::string &backup_id) {
-    Instance *inst = backend_.instance(instance_id);
-    if (!inst) return false;
-
-    /* Stop the instance before restoring. */
-    if (inst->state() == InstanceState::kRunning ||
-        inst->state() == InstanceState::kStarting) {
-        backend_.stop_instance(instance_id);
-        /* Wait briefly for stop. */
-        for (int i = 0; i < 20; ++i) {
-            if (inst->state() != InstanceState::kRunning &&
-                inst->state() != InstanceState::kStarting &&
-                inst->state() != InstanceState::kStopping)
-                break;
-            usleep(100000);
-        }
+    /* The id becomes part of a path, so validate it strictly. */
+    if (backup_id.empty()) return false;
+    for (char c : backup_id) {
+        bool ok = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
+                  (c >= '0' && c <= '9') || c == '-' || c == '_';
+        if (!ok) return false;
     }
+    if (workdir.empty()) return false;
 
-    std::string zip_path = "backups/" + instance_id + "/" + backup_id + ".zip";
+    std::string zip_rel = backups_root(instance_id) + "/" + backup_id + ".zip";
     std::string abs_zip;
-    if (!sandbox_.resolve(zip_path, abs_zip)) return false;
+    if (!sandbox_.resolve(zip_rel, abs_zip)) return false;
 
-    std::string world_dir = inst->config().workdir + "/world";
-    std::string abs_world;
-    if (!sandbox_.resolve(world_dir, abs_world)) return false;
+    bool full = false;
+    if (!read_manifest(abs_zip, full)) return false;
 
-    /* Remove existing world dir, then extract. */
-    sandbox_.remove_tree(world_dir);
-    if (!sandbox_.mkdirs(world_dir)) return false;
-    if (!zip_extract(abs_zip, abs_world)) return false;
+    /* Validate every member name before deleting the current data. */
+    std::vector<std::string> members = zip_list(abs_zip);
+    if (members.empty()) return false;
+
+    std::string target_rel = full ? workdir : (workdir + "/world");
+    std::string abs_target;
+    if (!sandbox_.resolve(target_rel, abs_target)) return false;
+
+    if (sandbox_.exists(target_rel) && !sandbox_.remove_tree(target_rel))
+        return false;
+    if (!sandbox_.mkdirs(target_rel)) return false;
+    if (!zip_extract(abs_zip, abs_target)) return false;
     return true;
 }
 
 bool BackupManager::remove(const std::string &instance_id,
                            const std::string &backup_id) {
-    std::string zip_path = "backups/" + instance_id + "/" + backup_id + ".zip";
-    return sandbox_.remove(zip_path);
+    if (backup_id.empty()) return false;
+    for (char c : backup_id) {
+        bool ok = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
+                  (c >= '0' && c <= '9') || c == '-' || c == '_';
+        if (!ok) return false;
+    }
+    std::string zip_rel = backups_root(instance_id) + "/" + backup_id + ".zip";
+    std::string abs_zip;
+    if (!sandbox_.resolve(zip_rel, abs_zip)) return false;
+    return sandbox_.remove(zip_rel);
 }
 
-std::string BackupManager::backups_root(const std::string &instance_id) const {
+std::string BackupManager::backups_root(
+    const std::string &instance_id) const {
     return "backups/" + instance_id;
 }
 

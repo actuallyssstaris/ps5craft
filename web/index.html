@@ -1,143 +1,862 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>PS5Craft — Minecraft Server Manager</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>PS5Craft</title>
 <style>
   :root {
-    --bg:#0b0d11; --panel:#141922; --line:#26303e; --fg:#e7edf5;
-    --dim:#8b98ab; --accent:#4cc2ff; --ok:#3ddc97; --warn:#ffc857; --bad:#ff6b6b;
+    --bg: #080b10;
+    --bg-soft: #0d1219;
+    --panel: #121923;
+    --panel-2: #172130;
+    --line: #22303f;
+    --line-soft: #1a2532;
+    --text: #e8eef5;
+    --muted: #8fa0b3;
+    --accent: #54c6ff;
+    --accent-soft: #0d2f43;
+    --ok: #46d17a;
+    --warn: #e5b45a;
+    --bad: #ff6b62;
+    --radius: 12px;
   }
-  *{box-sizing:border-box}
-  body{margin:0;background:var(--bg);color:var(--fg);
-       font:15px/1.55 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;}
-  .wrap{max-width:1100px;margin:0 auto;padding:0 16px;}
-  header{display:flex;align-items:center;gap:12px;padding:18px 0;flex-wrap:wrap;}
-  h1{margin:0;font-size:20px;letter-spacing:-0.02em;}
-  .tag{color:var(--dim);font-size:13px;}
-  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;margin-top:8px;}
-  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;}
-  .card h2{margin:0 0 8px;font-size:15px;display:flex;justify-content:space-between;align-items:center;}
-  .badge{font-size:11px;padding:2px 8px;border-radius:999px;border:1px solid var(--line);color:var(--dim);}
-  .badge.ok{color:var(--ok);border-color:var(--ok);background:#0b2418;}
-  .badge.bad{color:var(--bad);border-color:var(--bad);background:#2d1618;}
-  .badge.stopped{color:var(--dim);}
-  .meta{color:var(--dim);font-size:12.5px;margin:6px 0;}
-  .row{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;}
-  button{border:none;border-radius:8px;padding:7px 14px;font-size:13px;cursor:pointer;
-         background:var(--line);color:var(--fg);border:1px solid #3a4555;}
-  button:hover{background:#3a4555;}
-  button.ok{background:#0e4f33;border-color:#1b7a54;}
-  button.ok:hover{background:#126a43;}
-  button.bad{background:#5b2424;border-color:#8a3636;color:#ffb3b3;}
-  button.bad:hover{background:#702d2d;}
-  button:disabled{opacity:0.5;cursor:not-allowed;}
-  .spinner{display:inline-block;width:14px;height:14px;border:2px solid var(--dim);border-top-color:transparent;
-           border-radius:50%;spin:spin 1s linear infinite;vertical-align:middle;}
-  @keyframes spin{to{transform:rotate(360deg)}}
-  .empty{color:var(--dim);padding:26px;text-align:center;}
-  .note{font-size:12.5px;color:var(--dim);margin-top:10px;border-top:1px solid var(--line);padding-top:10px;}
-  .api{font-size:12px;color:var(--dim);background:#0f141b;border:1px solid var(--line);border-radius:8px;padding:10px;margin-top:10px;overflow:auto;max-height:200px;}
-  .api b{color:var(--accent);}
-  .fatal{color:var(--bad);background:#2d1618;border:1px solid var(--bad);border-radius:8px;padding:12px;margin-top:10px;}
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: radial-gradient(1200px 600px at 80% -10%, #0e1c28 0%, var(--bg) 55%) no-repeat, var(--bg);
+    color: var(--text);
+    font: 14px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  button, input, select, textarea { font: inherit; color: inherit; }
+  button {
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 9px;
+    padding: 8px 13px;
+    cursor: pointer;
+    transition: border-color .15s, background .15s, transform .05s;
+  }
+  button:hover:not(:disabled) { border-color: #33475d; }
+  button:active:not(:disabled) { transform: translateY(1px); }
+  button:disabled { opacity: .4; cursor: not-allowed; }
+  button.primary { background: var(--accent-soft); border-color: #1c5a7d; color: #c9ecff; }
+  button.primary:hover:not(:disabled) { border-color: #2a7ba8; }
+  button.danger { background: #2a1414; border-color: #552423; color: #ffb1aa; }
+  button.ghost { background: transparent; }
+  button.sm { padding: 5px 9px; font-size: 12px; border-radius: 8px; }
+  input, select, textarea {
+    background: var(--bg-soft);
+    border: 1px solid var(--line);
+    border-radius: 9px;
+    padding: 8px 11px;
+    width: 100%;
+  }
+  input:focus, select:focus, textarea:focus, button:focus-visible {
+    outline: 2px solid #1f6f96; outline-offset: 1px;
+  }
+  a { color: var(--accent); }
+
+  /* Top bar */
+  .topbar {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 18px;
+    border-bottom: 1px solid var(--line-soft);
+    background: rgba(8, 11, 16, .82);
+    backdrop-filter: blur(8px);
+    position: sticky; top: 0; z-index: 20;
+  }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; letter-spacing: .2px; }
+  .brand .mark {
+    width: 26px; height: 26px; border-radius: 8px;
+    background: linear-gradient(135deg, #2a8fc0, #54c6ff);
+    display: grid; place-items: center; color: #04121b; font-size: 13px; font-weight: 800;
+  }
+  .conn { display: flex; align-items: center; gap: 7px; color: var(--muted); font-size: 12px; }
+  .conn .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--bad); }
+  .conn.on .dot { background: var(--ok); box-shadow: 0 0 0 3px rgba(70, 209, 122, .12); }
+  .topbar .grow { flex: 1; }
+
+  /* Layout */
+  .shell { display: grid; grid-template-columns: 290px minmax(0, 1fr); min-height: calc(100vh - 51px); }
+  .sidebar {
+    border-right: 1px solid var(--line-soft);
+    padding: 14px;
+    background: rgba(13, 18, 25, .55);
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .sidebar .label {
+    font-size: 11px; text-transform: uppercase; letter-spacing: .1em;
+    color: var(--muted); padding: 4px 4px 8px;
+  }
+  .server-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 11px; border-radius: 10px;
+    border: 1px solid transparent; background: transparent;
+    cursor: pointer; text-align: left; width: 100%;
+  }
+  .server-item:hover { background: var(--panel); }
+  .server-item.active { background: var(--panel-2); border-color: var(--line); }
+  .server-item .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); flex: none; }
+  .server-item .dot.running { background: var(--ok); box-shadow: 0 0 0 3px rgba(70,209,122,.12); }
+  .server-item .dot.starting, .server-item .dot.stopping { background: var(--warn); }
+  .server-item .dot.crashed, .server-item .dot.error { background: var(--bad); }
+  .server-item .name { font-weight: 600; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .server-item .sub { font-size: 11px; color: var(--muted); }
+  .server-item .body { min-width: 0; flex: 1; }
+  .sidebar .foot { margin-top: auto; padding-top: 12px; font-size: 11px; color: var(--muted); }
+
+  .content { padding: 18px 22px 40px; min-width: 0; }
+  .empty {
+    border: 1px dashed var(--line); border-radius: var(--radius);
+    padding: 48px 24px; text-align: center; color: var(--muted);
+  }
+  .empty h2 { color: var(--text); margin: 0 0 6px; font-size: 18px; }
+
+  /* Server header */
+  .server-head { display: flex; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
+  .server-head h2 { margin: 0; font-size: 22px; letter-spacing: -.01em; }
+  .server-head .sub { color: var(--muted); font-size: 12px; margin-top: 4px; }
+  .badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 10px; border-radius: 999px; font-size: 11px;
+    font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+    border: 1px solid var(--line); color: var(--muted);
+  }
+  .badge.running { color: var(--ok); border-color: #1e6a3c; background: #0d2417; }
+  .badge.starting, .badge.stopping { color: var(--warn); border-color: #6a5119; background: #241d0c; }
+  .badge.crashed, .badge.error { color: var(--bad); border-color: #6b2723; background: #250f0e; }
+  .actions { display: flex; gap: 8px; flex-wrap: wrap; margin-left: auto; }
+
+  .stats { display: flex; gap: 22px; flex-wrap: wrap; margin: 14px 0 4px; }
+  .stat .k { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+  .stat .v { font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+  /* Tabs */
+  .tabs {
+    display: flex; gap: 4px; margin: 18px 0 0;
+    border-bottom: 1px solid var(--line-soft); overflow-x: auto;
+  }
+  .tabs button {
+    background: none; border: none; border-bottom: 2px solid transparent;
+    border-radius: 0; padding: 10px 14px; color: var(--muted);
+    font-weight: 600; font-size: 13px; white-space: nowrap;
+  }
+  .tabs button.active { color: var(--text); border-bottom-color: var(--accent); }
+  .tabpane { padding-top: 16px; }
+
+  .panel {
+    background: var(--panel); border: 1px solid var(--line-soft);
+    border-radius: var(--radius); padding: 14px;
+  }
+  .toolbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+  .toolbar .grow { flex: 1; }
+
+  pre.log {
+    margin: 0; background: #05080c; border: 1px solid var(--line-soft);
+    border-radius: 10px; padding: 12px; height: 420px; overflow: auto;
+    font: 12px/1.55 ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    white-space: pre-wrap; word-break: break-word; color: #c6d4e1;
+  }
+  .cmd-row { display: flex; gap: 8px; }
+  .cmd-row input { flex: 1; }
+
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--line-soft); font-size: 13px; }
+  th { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .07em; font-weight: 600; }
+  tr:last-child td { border-bottom: none; }
+  td.actions-cell { text-align: right; white-space: nowrap; }
+  td.actions-cell button, td.actions-cell a { margin-left: 6px; }
+  .mono { font-family: ui-monospace, Menlo, monospace; font-size: 12px; }
+  .muted { color: var(--muted); }
+  .path { font-family: ui-monospace, Menlo, monospace; font-size: 12px; color: var(--accent); word-break: break-all; }
+  .crumbs { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; font-family: ui-monospace, Menlo, monospace; font-size: 12px; }
+  .crumbs button { padding: 2px 6px; font-size: 12px; background: transparent; border-color: transparent; color: var(--accent); }
+  .crumbs button:hover { border-color: var(--line); }
+
+  /* Dialogs */
+  dialog {
+    background: var(--panel); color: var(--text);
+    border: 1px solid var(--line); border-radius: 14px;
+    padding: 20px; width: min(560px, calc(100vw - 32px));
+    box-shadow: 0 24px 80px rgba(0,0,0,.6);
+  }
+  dialog::backdrop { background: rgba(3, 6, 10, .72); backdrop-filter: blur(2px); }
+  dialog h3 { margin: 0 0 14px; font-size: 16px; }
+  .field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+  .field label { font-size: 11px; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); }
+  .row-end { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+  textarea { resize: vertical; min-height: 240px; font-family: ui-monospace, Menlo, monospace; font-size: 12px; }
+
+  #toast {
+    position: fixed; right: 16px; bottom: 16px; z-index: 50;
+    max-width: min(420px, calc(100vw - 32px));
+    background: var(--panel-2); border: 1px solid var(--line);
+    border-radius: 10px; padding: 11px 14px; font-size: 13px;
+    display: none; box-shadow: 0 14px 40px rgba(0,0,0,.5);
+  }
+  #toast.err { border-color: #6b2723; color: #ffb1aa; }
+
+  @media (max-width: 820px) {
+    .shell { grid-template-columns: 1fr; }
+    .sidebar {
+      border-right: none; border-bottom: 1px solid var(--line-soft);
+      flex-direction: row; overflow-x: auto; padding: 10px 12px; gap: 6px;
+    }
+    .sidebar .label, .sidebar .foot { display: none; }
+    .server-item { width: auto; flex: none; padding: 8px 10px; }
+    .server-item .sub { display: none; }
+    .content { padding: 14px 14px 32px; }
+    .actions { margin-left: 0; width: 100%; }
+    .server-head h2 { font-size: 19px; }
+    pre.log { height: 300px; }
+    table .hide-sm { display: none; }
+  }
 </style>
 </head>
 <body>
-<div class="wrap">
-  <header>
-    <h1>PS5Craft</h1>
-    <span class="tag">Minecraft Java server manager</span>
-  </header>
 
-  <div id="error" class="fatal" style="display:none"></div>
-
-  <div class="grid" id="grid">
-    <div class="card">
-      <h2>Servers <span id="count" class="badge">0</span></h2>
-      <div class="empty" id="empty">No server instances yet.</div>
-      <div id="instances"></div>
-    </div>
-  </div>
-
-  <div class="note">
-    Polls <code>/api/instances</code> every 2s from the shared backend. Native UI and web dashboard read the same state.
-  </div>
+<div class="topbar">
+  <div class="brand"><span class="mark">C</span>PS5Craft</div>
+  <div class="conn" id="conn"><span class="dot"></span><span id="conn-text">connecting…</span></div>
+  <span class="grow"></span>
+  <button class="primary" id="btn-new">New server</button>
 </div>
 
+<div class="shell">
+  <aside class="sidebar">
+    <div class="label">Servers</div>
+    <div id="server-list"></div>
+    <div class="foot" id="sidebar-foot">—</div>
+  </aside>
+
+  <main class="content">
+    <div id="empty" class="empty" style="display:none">
+      <h2>No servers yet</h2>
+      <p>Create a server to get started. Tested software: Vanilla, Fabric, Paper.</p>
+      <button class="primary" id="btn-new-2">Create a server</button>
+    </div>
+
+    <section id="view" style="display:none">
+      <div class="server-head">
+        <div>
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            <h2 id="srv-name">—</h2>
+            <span class="badge" id="srv-state">—</span>
+          </div>
+          <div class="sub" id="srv-sub">—</div>
+        </div>
+        <div class="actions">
+          <button class="primary sm" id="act-start">Start</button>
+          <button class="sm" id="act-stop">Stop</button>
+          <button class="sm" id="act-restart">Restart</button>
+          <button class="sm" id="act-eula">Accept EULA</button>
+          <button class="sm danger" id="act-delete">Delete</button>
+        </div>
+      </div>
+
+      <div class="stats">
+        <div class="stat"><div class="k">PID</div><div class="v" id="st-pid">—</div></div>
+        <div class="stat"><div class="k">Uptime</div><div class="v" id="st-uptime">—</div></div>
+        <div class="stat"><div class="k">Heap</div><div class="v" id="st-heap">—</div></div>
+        <div class="stat"><div class="k">Exit</div><div class="v" id="st-exit">—</div></div>
+      </div>
+
+      <div class="tabs" id="tabs">
+        <button data-tab="logs" class="active">Console log</button>
+        <button data-tab="cmd">Send command</button>
+        <button data-tab="files">Files</button>
+        <button data-tab="backups">Backups</button>
+      </div>
+
+      <div class="tabpane" id="tab-logs">
+        <div class="panel">
+          <div class="toolbar">
+            <span class="muted">Auto-refresh every 2 s while this tab is open</span>
+            <span class="grow"></span>
+            <button class="sm" id="btn-log-refresh">Refresh</button>
+          </div>
+          <pre class="log" id="log-view">(no output yet)</pre>
+        </div>
+      </div>
+
+      <div class="tabpane" id="tab-cmd" style="display:none">
+        <div class="panel">
+          <div class="cmd-row">
+            <input type="text" id="cmd-input" placeholder="say hello / list / op player" autocomplete="off">
+            <button class="primary" id="btn-cmd-send">Send</button>
+          </div>
+          <p class="muted" style="margin:10px 0 0">Commands go to the server stdin. Works while the server is running.</p>
+        </div>
+      </div>
+
+      <div class="tabpane" id="tab-files" style="display:none">
+        <div class="panel">
+          <div class="toolbar">
+            <div class="crumbs" id="fs-crumbs"></div>
+            <span class="grow"></span>
+            <button class="sm" id="btn-fs-up">Up</button>
+            <button class="sm" id="btn-fs-refresh">Refresh</button>
+            <button class="sm" id="btn-fs-mkdir">New folder</button>
+            <button class="sm primary" id="btn-fs-write">New file</button>
+          </div>
+          <table>
+            <thead><tr><th>Name</th><th class="hide-sm">Size</th><th class="hide-sm">Modified</th><th></th></tr></thead>
+            <tbody id="fs-rows"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="tabpane" id="tab-backups" style="display:none">
+        <div class="panel">
+          <div class="toolbar">
+            <button class="primary sm" id="btn-backup-world">Back up world</button>
+            <button class="sm" id="btn-backup-full">Back up whole server</button>
+            <span class="grow"></span>
+            <button class="sm" id="btn-backup-refresh">Refresh</button>
+          </div>
+          <table>
+            <thead><tr><th>Backup</th><th class="hide-sm">Size</th><th class="hide-sm">Created</th><th></th></tr></thead>
+            <tbody id="backup-rows"></tbody>
+          </table>
+          <p class="muted" style="margin:12px 0 0">Restoring replaces the current world. Stop the server first.</p>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<dialog id="dlg-new">
+  <form id="form-new" method="dialog">
+    <h3>New server</h3>
+    <div class="field">
+      <label for="new-name">Name</label>
+      <input type="text" id="new-name" value="My Server" required>
+    </div>
+    <div class="field">
+      <label for="new-software">Software</label>
+      <select id="new-software">
+        <optgroup label="Tested on PS5">
+          <option value="vanilla">Vanilla</option>
+          <option value="fabric">Fabric (loader 0.19.5)</option>
+          <option value="paper">Paper (build 207)</option>
+        </optgroup>
+        <optgroup label="Not tested on PS5 — disabled">
+          <option disabled>Spigot</option>
+          <option disabled>Purpur</option>
+          <option disabled>Pufferfish</option>
+          <option disabled>Forge</option>
+          <option disabled>NeoForge</option>
+          <option disabled>Quilt</option>
+        </optgroup>
+      </select>
+    </div>
+    <div class="field">
+      <label for="new-version">Minecraft version</label>
+      <input type="text" id="new-version" value="26.3">
+    </div>
+    <div class="field">
+      <label for="new-memory">Max heap (MiB)</label>
+      <input type="number" id="new-memory" value="224" min="128" max="4096">
+    </div>
+    <div class="row-end">
+      <button value="cancel" id="btn-new-cancel">Cancel</button>
+      <button class="primary" value="create" id="btn-create">Create</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dlg-text">
+  <h3 id="dlg-text-title">Edit file</h3>
+  <div class="field">
+    <label>Path</label>
+    <div class="path" id="dlg-text-path"></div>
+  </div>
+  <textarea id="dlg-text-body" spellcheck="false"></textarea>
+  <div class="row-end">
+    <button id="btn-text-cancel">Cancel</button>
+    <button class="primary" id="btn-text-save">Save</button>
+  </div>
+</dialog>
+
+<div id="toast"></div>
+
 <script>
-const BASE = '';
-let failing = 0;
+"use strict";
 
-function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+const $ = (sel) => document.querySelector(sel);
+const state = {
+  instances: [],
+  selected: null,
+  tab: "logs",
+  fsPath: "",
+  fsEditing: null,
+  lastSidebar: "",
+  lastHeader: "",
+};
 
-function badgeClass(state){
-  switch(state){
-    case 'running': return 'ok';
-    case 'crashed': case 'error': return 'bad';
-    default: return 'stopped';
+/* ---------- helpers ---------- */
+
+function toast(msg, isErr) {
+  const el = $("#toast");
+  el.textContent = msg;
+  el.className = isErr ? "err" : "";
+  el.style.display = "block";
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => { el.style.display = "none"; }, 4200);
+}
+
+async function api(path, opts) {
+  const res = await fetch(path, opts);
+  const type = res.headers.get("content-type") || "";
+  const data = type.includes("json") ? await res.json() : await res.text();
+  if (!res.ok) {
+    const msg = (data && data.error) ? data.error
+      : (typeof data === "string" && data ? data : "request failed");
+    throw new Error(msg + " (" + res.status + ")");
+  }
+  return data;
+}
+
+function esc(s) {
+  return String(s == null ? "" : s)
+    .replaceAll("&", "&amp;").replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;").replaceAll('"', "&quot;");
+}
+
+function encPath(p) {
+  return p.split("/").map(encodeURIComponent).join("/");
+}
+
+function fmtBytes(n) {
+  if (!n) return "0 B";
+  const units = ["B", "KiB", "MiB", "GiB"];
+  let i = 0;
+  while (n >= 1024 && i < units.length - 1) { n /= 1024; i++; }
+  return n.toFixed(i === 0 ? 0 : 1) + " " + units[i];
+}
+
+function fmtTime(ms) {
+  return ms ? new Date(ms).toLocaleString() : "—";
+}
+
+function fmtUptime(ms) {
+  if (!ms) return "—";
+  const s = Math.floor(ms / 1000);
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  if (h) return h + "h " + m + "m";
+  return m + "m " + (s % 60) + "s";
+}
+
+function joinPath(base, name) {
+  return base ? base + "/" + name : name;
+}
+
+function sel() {
+  return state.instances.find((i) => i.id === state.selected) || null;
+}
+
+/* ---------- data ---------- */
+
+async function loadInstances() {
+  try {
+    const data = await api("/api/instances");
+    state.instances = data.instances || [];
+    $("#conn").classList.add("on");
+    $("#conn-text").textContent = "connected · " + new Date().toLocaleTimeString();
+    if (!state.selected && state.instances.length) state.selected = state.instances[0].id;
+    if (state.selected && !sel()) state.selected = state.instances.length ? state.instances[0].id : null;
+    renderSidebar();
+    renderMain();
+  } catch (e) {
+    $("#conn").classList.remove("on");
+    $("#conn-text").textContent = "backend unreachable";
   }
 }
 
-function render(servers){
-  const grid=document.getElementById('instances');
-  const empty=document.getElementById('empty');
-  const count=document.getElementById('count');
-  count.textContent=servers.length;
-  if(servers.length===0){empty.style.display='block';grid.innerHTML='';return;}
-  empty.style.display='none';
-  grid.innerHTML=servers.map(s=>{
-    const st=s.state||'stopped';
-    const bc=badgeClass(st);
-    return `<div class="card">
-      <h2>${esc(s.name||'unnamed')} <span class="badge ${bc}">${esc(st)}</span></h2>
-      <div class="meta">
-        <div>${esc(s.software||'?')} &middot; ${esc(s.version||'?')} &middot; pid ${s.pid||'-'}</div>
-        ${s.exit_code!==undefined && s.exit_code!==-1 ? `<div>exit ${esc(s.exit_code)}${s.exit_reason?' &mdash; '+esc(s.exit_reason):''}</div>` : ''}
-        ${s.uptime_ms!==undefined ? `<div>up ${Math.floor(s.uptime_ms/1000)}s</div>` : ''}
-      </div>
-      <div class="row">
-        <button class="ok" onclick="act('${esc(s.id)}','start')" ${st!=='stopped'&&st!=='crashed'&&st!=='error'?'disabled':''}>Start</button>
-        <button class="bad" onclick="act('${esc(s.id)}','stop')" ${st!=='running'&&st!=='starting'&&st!=='stopping'?'disabled':''}>Stop</button>
-        <button onclick="act('${esc(s.id)}','restart')" ${st==='running'||st==='crashed'||st==='error'?'':'disabled'}>Restart</button>
-      </div>
-      <div class="meta" style="margin-top:8px">id: <code style="font-size:11px">${esc(s.id)}</code></div>
-      <div class="api">${esc(JSON.stringify(s,null,2))}</div>
-    </div>`;
-  }).join('');
+function renderSidebar() {
+  const root = $("#server-list");
+  const key = JSON.stringify(state.instances.map((i) => [i.id, i.name, i.state, i.software]));
+  if (key !== state.lastSidebar) {
+    state.lastSidebar = key;
+    root.innerHTML = "";
+    for (const inst of state.instances) {
+      const b = document.createElement("button");
+      b.className = "server-item" + (inst.id === state.selected ? " active" : "");
+      b.dataset.id = inst.id;
+      b.innerHTML = `
+        <span class="dot ${inst.state}"></span>
+        <span class="body">
+          <span class="name">${esc(inst.name)}</span>
+          <span class="sub">${esc(inst.software)} ${esc(inst.version)} · ${esc(inst.state)}</span>
+        </span>`;
+      b.addEventListener("click", () => {
+        state.selected = inst.id;
+        state.fsPath = "";
+        renderSidebar();
+        renderMain();
+        switchTab(state.tab);
+      });
+      root.appendChild(b);
+    }
+    $("#sidebar-foot").textContent =
+      state.instances.filter((i) => i.state === "running").length + " running · " +
+      state.instances.length + " total";
+  }
+  for (const el of root.querySelectorAll(".server-item")) {
+    el.classList.toggle("active", el.dataset.id === state.selected);
+  }
+  $("#empty").style.display = state.instances.length ? "none" : "";
+  $("#view").style.display = state.instances.length ? "" : "none";
 }
 
-async function act(id,action){
-  const btn=document.querySelector(`button[onclick*="${id}"]`);
-  try{
-    const r=await fetch(`${BASE}/api/instances/${id}/${action}`,{method:'POST'});
-    if(!r.ok) throw new Error('HTTP '+r.status);
-  }catch(e){
-    showError('Failed to '+action+' server: '+e.message);
+function renderMain() {
+  const inst = sel();
+  if (!inst) return;
+  const key = JSON.stringify(inst);
+  if (key !== state.lastHeader) {
+    state.lastHeader = key;
+    $("#srv-name").textContent = inst.name;
+    const badge = $("#srv-state");
+    badge.textContent = inst.state;
+    badge.className = "badge " + inst.state;
+    $("#srv-sub").textContent =
+      inst.software + " " + inst.version + " · " + inst.id +
+      (inst.exit_reason ? " · " + inst.exit_reason : "");
+    $("#st-pid").textContent = inst.pid || "—";
+    $("#st-uptime").textContent = fmtUptime(inst.uptime_ms);
+    $("#st-heap").textContent = inst.memory_max_mib + " MiB";
+    $("#st-exit").textContent = inst.exit_code >= 0 ? inst.exit_code : "—";
+    const running = inst.state === "running";
+    const busy = inst.state === "starting" || inst.state === "stopping";
+    $("#act-start").disabled = running || busy;
+    $("#act-stop").disabled = !running;
+    $("#act-restart").disabled = !running;
+    $("#act-eula").disabled = !!inst.eula_accepted;
+    $("#act-delete").disabled = running || busy;
   }
 }
 
-function showError(m){
-  const el=document.getElementById('error');
-  el.textContent=m; el.style.display='block';
-}
+/* ---------- actions ---------- */
 
-async function load(){
-  try{
-    const r=await fetch(`${BASE}/api/instances`);
-    if(!r.ok) throw new Error('HTTP '+r.status);
-    const d=await r.json();
-    failing=0;
-    document.getElementById('error').style.display='none';
-    render(d.instances||[]);
-  }catch(e){
-    failing++;
-    if(failing>3) showError('Cannot reach API: '+e.message);
+async function action(act) {
+  const inst = sel();
+  if (!inst) return;
+  try {
+    if (act === "delete") {
+      if (!confirm("Delete this server record? Files on disk stay.")) return;
+      await api("/api/instances/" + encodeURIComponent(inst.id), { method: "DELETE" });
+      toast("Server deleted");
+      state.selected = null;
+      await loadInstances();
+      return;
+    }
+    await api("/api/instances/" + encodeURIComponent(inst.id) + "/" + act, { method: "POST" });
+    toast(act + " ok");
+    await loadInstances();
+  } catch (e) {
+    toast(e.message, true);
   }
 }
 
-load();
-setInterval(load,2000);
+function switchTab(tab) {
+  state.tab = tab;
+  for (const b of document.querySelectorAll("#tabs button"))
+    b.classList.toggle("active", b.dataset.tab === tab);
+  $("#tab-logs").style.display = tab === "logs" ? "" : "none";
+  $("#tab-cmd").style.display = tab === "cmd" ? "" : "none";
+  $("#tab-files").style.display = tab === "files" ? "" : "none";
+  $("#tab-backups").style.display = tab === "backups" ? "" : "none";
+  if (tab === "logs") loadLogs();
+  if (tab === "files") loadFiles(state.fsPath);
+  if (tab === "backups") loadBackups();
+}
+
+/* ---------- logs ---------- */
+
+async function loadLogs() {
+  const inst = sel();
+  if (!inst || state.tab !== "logs") return;
+  try {
+    const data = await api("/api/instances/" + encodeURIComponent(inst.id) + "/logs");
+    const view = $("#log-view");
+    const stick = view.scrollTop + view.clientHeight >= view.scrollHeight - 40;
+    view.textContent = data.logs || "(no output yet)";
+    if (stick) view.scrollTop = view.scrollHeight;
+  } catch (e) {
+    $("#log-view").textContent = "log unavailable: " + e.message;
+  }
+}
+
+/* ---------- files ---------- */
+
+function crumbs() {
+  const root = $("#fs-crumbs");
+  root.innerHTML = "";
+  const parts = state.fsPath.split("/").filter(Boolean);
+  const mk = (label, target) => {
+    const b = document.createElement("button");
+    b.textContent = label;
+    b.addEventListener("click", () => loadFiles(target));
+    return b;
+  };
+  root.appendChild(mk("/", ""));
+  parts.forEach((p, i) => {
+    root.appendChild(document.createTextNode("/"));
+    root.appendChild(mk(p, parts.slice(0, i + 1).join("/")));
+  });
+}
+
+async function loadFiles(path) {
+  const inst = sel();
+  if (!inst) return;
+  state.fsPath = path || "";
+  crumbs();
+  const rel = "instances/" + inst.id + "/" + state.fsPath;
+  try {
+    const data = await api("/api/fs/" + encPath(rel));
+    const tbody = $("#fs-rows");
+    tbody.innerHTML = "";
+    const entries = (data.entries || []).slice().sort((a, b) =>
+      (b.directory - a.directory) || a.name.localeCompare(b.name));
+    if (!entries.length) {
+      tbody.innerHTML = '<tr><td colspan="4" class="muted">Empty folder</td></tr>';
+      return;
+    }
+    for (const e of entries) {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${e.directory ? "📁" : "📄"} ${esc(e.name)}</td>
+        <td class="muted hide-sm">${e.directory ? "—" : fmtBytes(e.size)}</td>
+        <td class="muted hide-sm">${fmtTime(e.modified * 1000)}</td>
+        <td class="actions-cell"></td>`;
+      const cell = tr.querySelector(".actions-cell");
+      const b = (label, fn, danger) => {
+        const el = document.createElement("button");
+        el.className = "sm" + (danger ? " danger" : "");
+        el.textContent = label;
+        el.addEventListener("click", fn);
+        cell.appendChild(el);
+      };
+      if (e.directory) {
+        b("Open", () => loadFiles(joinPath(state.fsPath, e.name)));
+      } else {
+        b("Edit", () => openEditor(joinPath(state.fsPath, e.name)));
+      }
+      b("Rename", async () => {
+        const to = prompt("New name", e.name);
+        if (!to || to === e.name) return;
+        try {
+          await api("/api/fs/" + encPath(rel + "/" + e.name) +
+                    "?action=rename&to=" + encodeURIComponent(joinPath(state.fsPath, to)),
+                    { method: "POST" });
+          toast("Renamed");
+          loadFiles(state.fsPath);
+        } catch (err) { toast(err.message, true); }
+      });
+      b("Delete", async () => {
+        if (!confirm("Delete " + e.name + "?")) return;
+        try {
+          await api("/api/fs/" + encPath(rel + "/" + e.name) + "?action=delete",
+                    { method: "POST" });
+          toast("Deleted");
+          loadFiles(state.fsPath);
+        } catch (err) { toast(err.message, true); }
+      }, true);
+      tbody.appendChild(tr);
+    }
+  } catch (e) {
+    toast(e.message, true);
+  }
+}
+
+async function openEditor(relPath) {
+  const inst = sel();
+  if (!inst) return;
+  try {
+    const text = await api("/api/fs/" + encPath("instances/" + inst.id + "/" + relPath));
+    state.fsEditing = relPath;
+    $("#dlg-text-path").textContent = "/" + relPath;
+    $("#dlg-text-body").value = text;
+    $("#dlg-text").showModal();
+  } catch (e) {
+    toast(e.message, true);
+  }
+}
+
+async function saveEditor() {
+  const inst = sel();
+  if (!inst || !state.fsEditing) return;
+  try {
+    await api("/api/fs/" + encPath("instances/" + inst.id + "/" + state.fsEditing) + "?action=write",
+              { method: "POST", body: $("#dlg-text-body").value });
+    $("#dlg-text").close();
+    toast("Saved");
+    loadFiles(state.fsPath);
+  } catch (e) {
+    toast(e.message, true);
+  }
+}
+
+/* ---------- backups ---------- */
+
+async function loadBackups() {
+  const inst = sel();
+  if (!inst) return;
+  try {
+    const data = await api("/api/backup/" + encodeURIComponent(inst.id));
+    const tbody = $("#backup-rows");
+    tbody.innerHTML = "";
+    const backups = data.backups || [];
+    if (!backups.length) {
+      tbody.innerHTML = '<tr><td colspan="4" class="muted">No backups yet</td></tr>';
+      return;
+    }
+    for (const b of backups) {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td class="mono">${esc(b.id)} <span class="muted">${b.full ? "full" : "world"}</span></td>
+        <td class="muted hide-sm">${fmtBytes(b.size)}</td>
+        <td class="muted hide-sm">${fmtTime(b.modified * 1000)}</td>
+        <td class="actions-cell"></td>`;
+      const cell = tr.querySelector(".actions-cell");
+      const dl = document.createElement("a");
+      dl.href = "/api/backup/" + encodeURIComponent(inst.id) + "/" +
+                encodeURIComponent(b.id) + "/download";
+      dl.textContent = "Download";
+      cell.appendChild(dl);
+      const mk = (label, fn, danger) => {
+        const el = document.createElement("button");
+        el.className = "sm" + (danger ? " danger" : "");
+        el.textContent = label;
+        el.addEventListener("click", fn);
+        cell.appendChild(el);
+      };
+      mk("Restore", async () => {
+        if (!confirm("Restore " + b.id + "? The current world is replaced.")) return;
+        try {
+          await api("/api/backup/" + encodeURIComponent(inst.id) + "/" +
+                    encodeURIComponent(b.id) + "/restore", { method: "POST" });
+          toast("Restored");
+        } catch (err) { toast(err.message, true); }
+      });
+      mk("Delete", async () => {
+        if (!confirm("Delete backup " + b.id + "?")) return;
+        try {
+          await api("/api/backup/" + encodeURIComponent(inst.id) + "/" +
+                    encodeURIComponent(b.id) + "/delete", { method: "POST" });
+          toast("Deleted");
+          loadBackups();
+        } catch (err) { toast(err.message, true); }
+      }, true);
+      tbody.appendChild(tr);
+    }
+  } catch (e) {
+    toast(e.message, true);
+  }
+}
+
+async function createBackup(full) {
+  const inst = sel();
+  if (!inst) return;
+  try {
+    await api("/api/backup/" + encodeURIComponent(inst.id) + "/create" + (full ? "?full=1" : ""),
+              { method: "POST" });
+    toast("Backup created");
+    loadBackups();
+  } catch (e) {
+    toast(e.message, true);
+  }
+}
+
+/* ---------- wiring ---------- */
+
+$("#act-start").addEventListener("click", () => action("start"));
+$("#act-stop").addEventListener("click", () => action("stop"));
+$("#act-restart").addEventListener("click", () => action("restart"));
+$("#act-eula").addEventListener("click", () => action("eula"));
+$("#act-delete").addEventListener("click", () => action("delete"));
+$("#tabs").addEventListener("click", (ev) => {
+  const b = ev.target.closest("button[data-tab]");
+  if (b) switchTab(b.dataset.tab);
+});
+$("#btn-log-refresh").addEventListener("click", loadLogs);
+$("#btn-cmd-send").addEventListener("click", async () => {
+  const inst = sel();
+  const line = $("#cmd-input").value.trim();
+  if (!inst || !line) return;
+  try {
+    await api("/api/instances/" + encodeURIComponent(inst.id) + "/command",
+              { method: "POST", body: line });
+    $("#cmd-input").value = "";
+    toast("Command sent");
+  } catch (e) { toast(e.message, true); }
+});
+$("#cmd-input").addEventListener("keydown", (ev) => {
+  if (ev.key === "Enter") $("#btn-cmd-send").click();
+});
+$("#btn-fs-up").addEventListener("click", () => {
+  const parts = state.fsPath.split("/").filter(Boolean);
+  parts.pop();
+  loadFiles(parts.join("/"));
+});
+$("#btn-fs-refresh").addEventListener("click", () => loadFiles(state.fsPath));
+$("#btn-fs-mkdir").addEventListener("click", async () => {
+  const inst = sel();
+  const name = prompt("Folder name");
+  if (!inst || !name) return;
+  try {
+    await api("/api/fs/" + encPath("instances/" + inst.id + "/" + joinPath(state.fsPath, name)) + "?action=mkdir",
+              { method: "POST" });
+    loadFiles(state.fsPath);
+  } catch (e) { toast(e.message, true); }
+});
+$("#btn-fs-write").addEventListener("click", async () => {
+  const inst = sel();
+  const name = prompt("File name");
+  if (!inst || !name) return;
+  try {
+    await api("/api/fs/" + encPath("instances/" + inst.id + "/" + joinPath(state.fsPath, name)) + "?action=write",
+              { method: "POST", body: "" });
+    openEditor(joinPath(state.fsPath, name));
+  } catch (e) { toast(e.message, true); }
+});
+$("#btn-backup-world").addEventListener("click", () => createBackup(false));
+$("#btn-backup-full").addEventListener("click", () => createBackup(true));
+$("#btn-backup-refresh").addEventListener("click", loadBackups);
+$("#btn-text-cancel").addEventListener("click", () => $("#dlg-text").close());
+$("#btn-text-save").addEventListener("click", saveEditor);
+
+$("#btn-new").addEventListener("click", () => $("#dlg-new").showModal());
+$("#btn-new-2").addEventListener("click", () => $("#dlg-new").showModal());
+$("#form-new").addEventListener("submit", async (ev) => {
+  if (ev.submitter && ev.submitter.value === "cancel") return;
+  ev.preventDefault();
+  try {
+    await api("/api/instances", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: $("#new-name").value,
+        software: $("#new-software").value,
+        version: $("#new-version").value || "26.3",
+        memory_max_mib: Number($("#new-memory").value),
+      }),
+    });
+    $("#dlg-new").close();
+    toast("Server created");
+    await loadInstances();
+  } catch (e) {
+    toast(e.message, true);
+  }
+});
+
+loadInstances();
+setInterval(loadInstances, 2000);
+setInterval(() => { if (state.tab === "logs") loadLogs(); }, 2000);
 </script>
 </body>
 </html>

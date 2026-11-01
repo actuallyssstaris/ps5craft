@@ -5,12 +5,17 @@
 #include <atomic>
 #include <cstdint>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <vector>
 
 #include "json.hpp"
 
 namespace ps5craft {
+
+class Sandbox;
+class Server;
+class LogRing;
 
 enum class InstanceState : std::uint8_t {
     kStopped = 0,
@@ -32,6 +37,7 @@ struct InstanceConfig {
     std::string version = "26.3";
     std::string software = "vanilla"; /* vanilla | fabric | paper | ... */
     std::string jar_path;            /* relative to instance dir */
+    std::string java_path = "java";  /* bundled runtime entry on PS5 */
     MemorySettings memory;
     std::vector<std::string> jvm_args;
     std::vector<std::string> server_args;
@@ -55,6 +61,10 @@ struct InstanceSnapshot {
 class Instance {
 public:
     Instance(InstanceConfig config);
+    ~Instance();
+
+    /* Bind the instance to the data sandbox. Must be called before start. */
+    void attach(Sandbox &sandbox);
 
     const InstanceConfig &config() const { return config_; }
     InstanceState state() const { return state_.load(); }
@@ -64,24 +74,40 @@ public:
     const std::string &exit_reason() const { return exit_reason_; }
     std::uint64_t uptime_ms() const;
 
-    /* Returns true if a transition was started. Callers must not call
-       start/stop concurrently from two threads. */
+    /* Start spawns the server process synchronously. */
     bool request_start();
     bool request_stop();
     bool request_restart();
+
+    /* Drain output and reap an exited process. Returns 1 when reaped. */
+    int poll();
+
+    /* Send one command line to the server stdin. Returns bytes written. */
+    int send_command(const std::string &line);
+
+    /* Write eula.txt for this instance and remember the flag. */
+    bool write_eula();
+
+    /* Recent process output (bounded ring buffer). */
+    std::string logs() const;
 
     Json snapshot() const;
     std::string state_name() const;
 
 private:
     InstanceConfig config_;
+    Sandbox *sandbox_ = nullptr;
+    mutable std::mutex mutex_;
+    std::unique_ptr<LogRing> log_;
+    std::unique_ptr<Server> server_;
     std::atomic<InstanceState> state_{InstanceState::kStopped};
     std::atomic<std::int64_t> pid_{0};
     std::atomic<std::int64_t> started_at_{0};
     std::atomic<std::int64_t> stopped_at_{0};
     std::atomic<int> exit_code_{-1};
     std::string exit_reason_;
-    std::atomic<std::int64_t> uptime_ms_{0};
+    std::atomic<bool> stop_requested_{false};
+    std::atomic<bool> restart_requested_{false};
 };
 
 } // namespace ps5craft

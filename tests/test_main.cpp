@@ -9,10 +9,13 @@
 
 #include "../core/json.hpp"
 #include "../core/fs.hpp"
+#include "../core/zip.hpp"
 #include "../core/instance.hpp"
 #include "../core/backend.hpp"
 #include "../platform/process.hpp"
 
+#include <cstdlib>
+#include <limits.h>
 
 using namespace ps5craft;
 
@@ -21,6 +24,13 @@ static int failures = 0;
 #define CHECK(cond) do { \
     if (!(cond)) { std::printf("FAIL %s:%d: %s\n", __FILE__, __LINE__, #cond); ++failures; } \
 } while (0)
+
+/* Absolute path of the fake Java launcher (Server chdirs into the instance). */
+static std::string fake_java() {
+    char buf[PATH_MAX];
+    if (!getcwd(buf, sizeof buf)) return "tests/fake_java.sh";
+    return std::string(buf) + "/tests/fake_java.sh";
+}
 
 static void test_json() {
     std::printf("test_json ... ");
@@ -99,29 +109,161 @@ static void test_instance_state() {
     cfg.memory.initial_mib = 16;
     cfg.memory.max_mib = 224;
 
+    /* Without a sandbox the instance cannot spawn anything. */
     Instance inst(cfg);
     CHECK(inst.state() == InstanceState::kStopped);
     CHECK(inst.state_name() == "stopped");
-    CHECK(inst.request_start() == true);
-    CHECK(inst.state() == InstanceState::kStarting);
-    /* cannot start again while starting */
     CHECK(inst.request_start() == false);
-    CHECK(inst.request_stop() == true);
-    CHECK(inst.state() == InstanceState::kStopping);
+    CHECK(inst.state() == InstanceState::kError);
+    CHECK(inst.request_stop() == false);
 
     Json snap = inst.snapshot();
     CHECK(snap["id"].as_string() == "t1");
-    CHECK(snap["state"].as_string() == "stopping");
+    CHECK(snap["state"].as_string() == "error");
+    std::printf("ok\n");
+}
+
+/* Start the fake server through the real supervisor, then stop it. */
+static void test_instance_lifecycle() {
+    std::printf("test_instance_lifecycle ... ");
+    std::string root = "/tmp/ps5craft_lifecycle_test";
+    std::system(("rm -rf " + root).c_str());
+    Backend b(root);
+
+    InstanceConfig cfg;
+    cfg.name = "Lifecycle";
+    cfg.java_path = fake_java();
+    cfg.jar_path = "server.jar";
+    std::string id = b.create_instance(cfg);
+    CHECK(!id.empty());
+
+    CHECK(b.start_instance(id) == true);
+    Instance *inst = b.instance(id);
+    CHECK(inst != nullptr);
+    CHECK(inst->state() == InstanceState::kRunning);
+    CHECK(inst->pid() > 0);
+    CHECK(b.start_instance(id) == false);    /* already running */
+    CHECK(b.stop_instance("missing") == false);
+
+    usleep(300000);
+    b.poll_all();
+    CHECK(inst->logs().find("fake server starting") != std::string::npos);
+
+    CHECK(b.instance_command(id, "save-all flush") == true);
+    usleep(200000);
+    b.poll_all();
+    CHECK(inst->logs().find("saved the game") != std::string::npos);
+
+    CHECK(b.stop_instance(id) == true);
+    CHECK(inst->state() == InstanceState::kStopping);
+    for (int i = 0; i < 100; ++i) {
+        b.poll_all();
+        if (inst->state() == InstanceState::kStopped) break;
+        usleep(50000);
+    }
+    CHECK(inst->state() == InstanceState::kStopped);
+    CHECK(inst->exit_code() == 0);
+    CHECK(inst->pid() == 0);
+    std::printf("ok\n");
+}
+
+static void test_zip() {
+    std::printf("test_zip ... ");
+    std::string root = "/tmp/ps5craft_zip_test";
+    std::system(("rm -rf " + root).c_str());
+    CHECK(fs_mkdirs(root));
+
+    std::vector<ZipEntry> entries;
+    entries.push_back({"a.txt", "alpha", false});
+    entries.push_back({"dir/", "", true});
+    entries.push_back({"dir/b.txt", "beta-content", false});
+    std::string zip = root + "/test.zip";
+    CHECK(zip_write(zip, entries));
+
+    auto names = zip_list(zip);
+    CHECK(names.size() == 2);
+
+    std::string data;
+    CHECK(zip_read_entry(zip, "dir/b.txt", data, 1024));
+    CHECK(data == "beta-content");
+    CHECK(!zip_read_entry(zip, "missing.txt", data, 1024));
+
+    std::string out_dir = root + "/out";
+    CHECK(fs_mkdirs(out_dir));
+    CHECK(zip_extract(zip, out_dir));
+    std::string read_back;
+    CHECK(fs_read_file(out_dir + "/dir/b.txt", read_back));
+    CHECK(read_back == "beta-content");
+    std::printf("ok\n");
+}
+
+static void test_backup() {
+    std::printf("test_backup ... ");
+    std::string root = "/tmp/ps5craft_backup_test";
+    std::system(("rm -rf " + root).c_str());
+    Backend b(root);
+
+    InstanceConfig cfg;
+    cfg.name = "Backup Test";
+    cfg.java_path = fake_java();
+    cfg.jar_path = "server.jar";
+    std::string id = b.create_instance(cfg);
+    CHECK(!id.empty());
+
+    CHECK(b.fs_mkdir("instances/" + id + "/world/region"));
+    CHECK(b.fs_write("instances/" + id + "/world/level.dat", "original-level"));
+    CHECK(b.fs_write("instances/" + id + "/world/region/r.0.0.mca", "region-data"));
+
+    std::string backup_id = b.backup_create(id, false);
+    CHECK(!backup_id.empty());
+    CHECK(zip_list(root + "/backups/" + id + "/" + backup_id + ".zip").size() == 3);
+
+    auto backups = b.backup_list(id);
+    CHECK(backups.size() == 1);
+    CHECK(backups[0].id == backup_id);
+    CHECK(backups[0].full == false);
+
+    /* Destroy the world, then restore it. */
+    CHECK(b.fs_remove("instances/" + id + "/world/level.dat"));
+    std::string content;
+    CHECK(!b.sandbox().read("instances/" + id + "/world/level.dat", content, 4096));
+    CHECK(b.backup_restore(id, backup_id));
+    CHECK(b.sandbox().read("instances/" + id + "/world/level.dat", content, 4096));
+    CHECK(content == "original-level");
+    CHECK(b.sandbox().read("instances/" + id + "/world/region/r.0.0.mca",
+                           content, 4096));
+    CHECK(content == "region-data");
+
+    /* Traversal-shaped ids must be rejected. */
+    CHECK(!b.backup_restore(id, "../../etc/passwd"));
+    CHECK(!b.backup_remove(id, "../x"));
+
+    /* Restoring while running must be refused. */
+    CHECK(b.start_instance(id));
+    CHECK(!b.backup_restore(id, backup_id));
+    CHECK(b.stop_instance(id));
+    for (int i = 0; i < 100; ++i) {
+        b.poll_all();
+        if (b.instance(id)->state() == InstanceState::kStopped) break;
+        usleep(50000);
+    }
+
+    CHECK(b.backup_remove(id, backup_id));
+    CHECK(b.backup_list(id).empty());
     std::printf("ok\n");
 }
 
 static void test_backend() {
     std::printf("test_backend ... ");
-    Backend b("/tmp/ps5craft_backend_test");
+    std::string root = "/tmp/ps5craft_backend_test";
+    std::system(("rm -rf " + root).c_str());
+    Backend b(root);
 
     InstanceConfig c1;
     c1.name = "Alpha";
     c1.software = "paper";
+    c1.java_path = fake_java();
+    c1.jar_path = "server.jar";
     std::string id1 = b.create_instance(c1);
     CHECK(!id1.empty());
 
@@ -138,8 +280,14 @@ static void test_backend() {
     CHECK(snaps.size() == 2);
 
     CHECK(b.start_instance(id1) == true);
-    CHECK(b.start_instance(id1) == false); /* already starting */
+    CHECK(b.start_instance(id1) == false); /* already running */
     CHECK(b.stop_instance(id2) == false); /* not running */
+    CHECK(b.stop_instance(id1) == true);
+    for (int i = 0; i < 100; ++i) {
+        b.poll_all();
+        if (b.instance(id1)->state() == InstanceState::kStopped) break;
+        usleep(50000);
+    }
 
     CHECK(b.remove_instance(id2) == true);
     auto snaps2 = b.list_snapshots();
@@ -178,7 +326,10 @@ static void test_process_spawn() {
 int main() {
     test_json();
     test_fs_sandbox();
+    test_zip();
     test_instance_state();
+    test_instance_lifecycle();
+    test_backup();
     test_backend();
     test_process_spawn();
 

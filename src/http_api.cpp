@@ -58,41 +58,11 @@ enum MHD_Result send_text(struct MHD_Connection *conn, unsigned int status,
     return ret;
 }
 
-/* Parse a single query parameter value from "key=val&...". */
-std::string query_param(const std::string &query, const std::string &key) {
-    std::size_t pos = 0;
-    while (pos < query.size()) {
-        std::size_t sep = query.find('&', pos);
-        if (sep == std::string::npos) sep = query.size();
-        std::size_t eq = query.find('=', pos);
-        if (eq != std::string::npos && eq < sep) {
-            std::string k = query.substr(pos, eq - pos);
-            if (k == key) return query.substr(eq + 1, sep - eq - 1);
-        }
-        pos = sep + 1;
-    }
-    return std::string();
-}
-
-std::string url_decode(const std::string &in) {
-    std::string out;
-    out.reserve(in.size());
-    for (std::size_t i = 0; i < in.size(); ++i) {
-        char c = in[i];
-        if (c == '%' && i + 2 < in.size()) {
-            char hi = in[i + 1], lo = in[i + 2];
-            auto hex = [](char h) -> int {
-                if (h >= '0' && h <= '9') return h - '0';
-                if (h >= 'a' && h <= 'f') return h - 'a' + 10;
-                if (h >= 'A' && h <= 'F') return h - 'A' + 10;
-                return -1;
-            };
-            int a = hex(hi), b = hex(lo);
-            if (a >= 0 && b >= 0) { out += static_cast<char>((a << 4) | b); i += 2; continue; }
-        }
-        out += c;
-    }
-    return out;
+/* Query parameter value. libmicrohttpd has already URL-decoded it. */
+std::string query_param(struct MHD_Connection *conn, const char *key) {
+    const char *value =
+        MHD_lookup_connection_value(conn, MHD_GET_ARGUMENT_KIND, key);
+    return value ? std::string(value) : std::string();
 }
 
 /* Split path "/a/b/c" into components ["a","b","c"]. */
@@ -126,6 +96,14 @@ void finish_body(void **con_cls) {
     if (ctx) ctx->body_done = true;
 }
 
+/* Release the per-connection context when the request finishes. */
+void request_completed(void *, struct MHD_Connection *, void **con_cls,
+                       enum MHD_RequestTerminationCode) {
+    conn_ctx *ctx = static_cast<conn_ctx *>(*con_cls);
+    delete ctx;
+    *con_cls = nullptr;
+}
+
 } // namespace
 
 /* MHD request iterator: headers first, then body chunks, then a final call
@@ -153,21 +131,75 @@ extern "C" enum MHD_Result api_handler(void *cls, struct MHD_Connection *conn,
     if (std::strcmp(method, "POST") == 0) {
         conn_ctx *ctx = static_cast<conn_ctx *>(*con_cls);
         if (!ctx) {
-            ctx = new conn_ctx();
-            *con_cls = ctx;
+            *con_cls = new conn_ctx();
+            return MHD_YES; /* headers only so far */
         }
         if (upload_data && *upload_data_size > 0) {
             ctx->body.append(upload_data, *upload_data_size);
             *upload_data_size = 0;
             return MHD_YES;
         }
+        if (!ctx->body_done) {
+            finish_body(con_cls);
+            return MHD_YES;
+        }
     }
 
     std::string path = url ? url : "/";
-    std::size_t q = path.find('?');
-    std::string query;
-    if (q != std::string::npos) { query = path.substr(q + 1); path = path.substr(0, q); }
     auto parts = path_parts(path);
+
+    /* Dashboard: serve web/index.html for "/" and "/index.html". */
+    if (std::strcmp(method, "GET") == 0 &&
+        (path == "/" || path == "/index.html")) {
+        const char *root = std::getenv("PS5CRAFT_WEB_ROOT");
+        std::string file = std::string(root ? root : "web") + "/index.html";
+        std::string html;
+        if (ps5craft::fs_read_file(file, html)) {
+            struct MHD_Response *resp =
+                MHD_create_response_from_buffer(html.size(), (void *)html.data(),
+                                                MHD_RESPMEM_MUST_COPY);
+            if (!resp) return MHD_NO;
+            MHD_add_response_header(resp, MHD_HTTP_HEADER_CONTENT_TYPE,
+                                    "text/html; charset=utf-8");
+            enum MHD_Result ret = MHD_queue_response(conn, MHD_HTTP_OK, resp);
+            MHD_destroy_response(resp);
+            return ret;
+        }
+        return send_text(conn, MHD_HTTP_NOT_FOUND,
+                         "dashboard not found (set PS5CRAFT_WEB_ROOT)");
+    }
+
+    /* Create an instance: POST /api/instances with JSON body. */
+    if (parts.size() == 2 && parts[0] == "api" && parts[1] == "instances" &&
+        std::strcmp(method, "POST") == 0) {
+        ps5craft::Json body;
+        if (!ps5craft::Json::parse(post_body(con_cls), body) ||
+            !body.is_object()) {
+            ps5craft::Json err = ps5craft::Json::object();
+            err.set("error", "invalid JSON body");
+            return send_json(conn, MHD_HTTP_BAD_REQUEST, err);
+        }
+        ps5craft::InstanceConfig cfg;
+        cfg.name = body["name"].as_string("New Server");
+        cfg.software = body["software"].as_string("vanilla");
+        cfg.version = body["version"].as_string("26.3");
+        cfg.jar_path = body["jar_path"].as_string("server.jar");
+        if (body["memory_max_mib"].as_int(0) > 0)
+            cfg.memory.max_mib = body["memory_max_mib"].as_int();
+        if (body["memory_initial_mib"].as_int(0) > 0)
+            cfg.memory.initial_mib = body["memory_initial_mib"].as_int();
+        std::string id = g_backend->create_instance(cfg);
+        if (id.empty()) {
+            ps5craft::Json err = ps5craft::Json::object();
+            err.set("error",
+                    "unsupported software; tested on PS5: vanilla, fabric, paper");
+            return send_json(conn, MHD_HTTP_BAD_REQUEST, err);
+        }
+        ps5craft::Json out = ps5craft::Json::object();
+        out.set("ok", true);
+        out.set("id", id);
+        return send_json(conn, MHD_HTTP_OK, out);
+    }
 
     /* /api/instances */
     if (parts.size() >= 2 && parts[0] == "api" && parts[1] == "instances") {
@@ -183,6 +215,24 @@ extern "C" enum MHD_Result api_handler(void *cls, struct MHD_Connection *conn,
             }
             return send_json(conn, MHD_HTTP_OK, inst->snapshot());
         }
+        if (std::strcmp(method, "DELETE") == 0 && parts.size() == 3) {
+            bool ok = g_backend->remove_instance(parts[2]);
+            ps5craft::Json out = ps5craft::Json::object();
+            out.set("ok", ok);
+            return send_json(conn, ok ? MHD_HTTP_OK : MHD_HTTP_CONFLICT, out);
+        }
+        if (std::strcmp(method, "GET") == 0 && parts.size() == 4 &&
+            parts[3] == "logs") {
+            if (!g_backend->instance(parts[2])) {
+                ps5craft::Json err = ps5craft::Json::object();
+                err.set("error", "not found");
+                return send_json(conn, MHD_HTTP_NOT_FOUND, err);
+            }
+            ps5craft::Json root = ps5craft::Json::object();
+            root.set("id", parts[2]);
+            root.set("logs", g_backend->instance_logs(parts[2]));
+            return send_json(conn, MHD_HTTP_OK, root);
+        }
         if (std::strcmp(method, "POST") == 0 && parts.size() == 4) {
             ps5craft::Instance *inst = g_backend->instance(parts[2]);
             if (!inst) {
@@ -192,16 +242,40 @@ extern "C" enum MHD_Result api_handler(void *cls, struct MHD_Connection *conn,
             }
             std::string action = parts[3];
             if (action == "start") {
-                g_backend->start_instance(parts[2]);
-                return send_json(conn, MHD_HTTP_OK, inst->snapshot());
+                bool ok = g_backend->start_instance(parts[2]);
+                return send_json(conn, ok ? MHD_HTTP_OK : MHD_HTTP_CONFLICT,
+                                 inst->snapshot());
             }
             if (action == "stop") {
-                g_backend->stop_instance(parts[2]);
-                return send_json(conn, MHD_HTTP_OK, inst->snapshot());
+                bool ok = g_backend->stop_instance(parts[2]);
+                return send_json(conn, ok ? MHD_HTTP_OK : MHD_HTTP_CONFLICT,
+                                 inst->snapshot());
             }
             if (action == "restart") {
-                g_backend->restart_instance(parts[2]);
-                return send_json(conn, MHD_HTTP_OK, inst->snapshot());
+                bool ok = g_backend->restart_instance(parts[2]);
+                return send_json(conn, ok ? MHD_HTTP_OK : MHD_HTTP_CONFLICT,
+                                 inst->snapshot());
+            }
+            if (action == "eula") {
+                bool ok = g_backend->accept_eula(parts[2]);
+                ps5craft::Json out = ps5craft::Json::object();
+                out.set("ok", ok);
+                return send_json(conn, ok ? MHD_HTTP_OK : MHD_HTTP_INTERNAL_SERVER_ERROR,
+                                 out);
+            }
+            if (action == "command") {
+                std::string line = post_body(con_cls);
+                if (line.empty()) line = query_param(conn, "cmd");
+                if (line.empty()) {
+                    ps5craft::Json err = ps5craft::Json::object();
+                    err.set("error", "empty command");
+                    return send_json(conn, MHD_HTTP_BAD_REQUEST, err);
+                }
+                bool ok = g_backend->instance_command(parts[2], line);
+                ps5craft::Json root = ps5craft::Json::object();
+                root.set("ok", ok);
+                return send_json(conn, ok ? MHD_HTTP_OK : MHD_HTTP_CONFLICT,
+                                 root);
             }
             ps5craft::Json err = ps5craft::Json::object();
             err.set("error", "unknown action");
@@ -257,7 +331,7 @@ extern "C" enum MHD_Result api_handler(void *cls, struct MHD_Connection *conn,
         }
 
         if (std::strcmp(method, "POST") == 0 && parts.size() >= 3) {
-            std::string action = query_param(query, "action");
+            std::string action = query_param(conn, "action");
             if (action == "write") {
                 std::string data = post_body(con_cls);
                 if (!g_backend->fs_write(relative, data)) {
@@ -280,7 +354,7 @@ extern "C" enum MHD_Result api_handler(void *cls, struct MHD_Connection *conn,
                 return send_json(conn, MHD_HTTP_OK, ok);
             }
             if (action == "rename") {
-                std::string to = url_decode(query_param(query, "to"));
+                std::string to = query_param(conn, "to");
                 if (to.empty()) {
                     ps5craft::Json err = ps5craft::Json::object();
                     err.set("error", "missing target");
@@ -306,7 +380,7 @@ extern "C" enum MHD_Result api_handler(void *cls, struct MHD_Connection *conn,
                 return send_json(conn, MHD_HTTP_OK, ok);
             }
             if (action == "copy") {
-                std::string to = url_decode(query_param(query, "to"));
+                std::string to = query_param(conn, "to");
                 if (to.empty()) {
                     ps5craft::Json err = ps5craft::Json::object();
                     err.set("error", "missing target");
@@ -337,9 +411,9 @@ extern "C" enum MHD_Result api_handler(void *cls, struct MHD_Connection *conn,
     if (parts.size() == 3 && parts[0] == "api" && parts[1] == "backup" &&
         std::strcmp(method, "GET") == 0) {
         auto backups = g_backend->backup_list(parts[2]);
-        Json arr = Json::array();
+        ps5craft::Json arr = ps5craft::Json::array();
         for (const auto &b : backups) {
-            Json item = Json::object();
+            ps5craft::Json item = ps5craft::Json::object();
             item.set("id", b.id);
             item.set("file_name", b.file_name);
             item.set("path", b.path);
@@ -349,7 +423,7 @@ extern "C" enum MHD_Result api_handler(void *cls, struct MHD_Connection *conn,
             item.set("full", b.full);
             arr.push(item);
         }
-        Json root = Json::object();
+        ps5craft::Json root = ps5craft::Json::object();
         root.set("instance_id", parts[2]);
         root.set("backups", arr);
         return send_json(conn, MHD_HTTP_OK, root);
@@ -358,14 +432,14 @@ extern "C" enum MHD_Result api_handler(void *cls, struct MHD_Connection *conn,
     /* /api/backup/<id>/create  (POST ?full=1) */
     if (parts.size() == 4 && parts[0] == "api" && parts[1] == "backup" &&
         parts[3] == "create" && std::strcmp(method, "POST") == 0) {
-        bool full = query_param(query, "full") == "1";
+        bool full = query_param(conn, "full") == "1";
         std::string id = g_backend->backup_create(parts[2], full);
         if (id.empty()) {
-            Json err = Json::object();
+            ps5craft::Json err = ps5craft::Json::object();
             err.set("error", "cannot create backup");
             return send_json(conn, MHD_HTTP_INTERNAL_SERVER_ERROR, err);
         }
-        Json ok = Json::object();
+        ps5craft::Json ok = ps5craft::Json::object();
         ok.set("ok", true);
         ok.set("id", id);
         return send_json(conn, MHD_HTTP_OK, ok);
@@ -375,11 +449,11 @@ extern "C" enum MHD_Result api_handler(void *cls, struct MHD_Connection *conn,
     if (parts.size() == 5 && parts[0] == "api" && parts[1] == "backup" &&
         parts[4] == "restore" && std::strcmp(method, "POST") == 0) {
         if (!g_backend->backup_restore(parts[2], parts[3])) {
-            Json err = Json::object();
+            ps5craft::Json err = ps5craft::Json::object();
             err.set("error", "cannot restore");
             return send_json(conn, MHD_HTTP_INTERNAL_SERVER_ERROR, err);
         }
-        Json ok = Json::object();
+        ps5craft::Json ok = ps5craft::Json::object();
         ok.set("ok", true);
         return send_json(conn, MHD_HTTP_OK, ok);
     }
@@ -388,11 +462,11 @@ extern "C" enum MHD_Result api_handler(void *cls, struct MHD_Connection *conn,
     if (parts.size() == 5 && parts[0] == "api" && parts[1] == "backup" &&
         parts[4] == "delete" && std::strcmp(method, "POST") == 0) {
         if (!g_backend->backup_remove(parts[2], parts[3])) {
-            Json err = Json::object();
+            ps5craft::Json err = ps5craft::Json::object();
             err.set("error", "cannot delete");
             return send_json(conn, MHD_HTTP_INTERNAL_SERVER_ERROR, err);
         }
-        Json ok = Json::object();
+        ps5craft::Json ok = ps5craft::Json::object();
         ok.set("ok", true);
         return send_json(conn, MHD_HTTP_OK, ok);
     }
@@ -403,13 +477,13 @@ extern "C" enum MHD_Result api_handler(void *cls, struct MHD_Connection *conn,
         std::string zip_path = "backups/" + parts[2] + "/" + parts[3] + ".zip";
         std::string abs_zip;
         if (!g_backend->sandbox().resolve(zip_path, abs_zip)) {
-            Json err = Json::object();
+            ps5craft::Json err = ps5craft::Json::object();
             err.set("error", "not found");
             return send_json(conn, MHD_HTTP_NOT_FOUND, err);
         }
         std::string content;
         if (!g_backend->sandbox().read(zip_path, content, 1ull << 30)) {
-            Json err = Json::object();
+            ps5craft::Json err = ps5craft::Json::object();
             err.set("error", "cannot read");
             return send_json(conn, MHD_HTTP_INTERNAL_SERVER_ERROR, err);
         }
@@ -437,8 +511,10 @@ extern "C" enum MHD_Result api_handler(void *cls, struct MHD_Connection *conn,
 
 int http_api_start(int port, void *backend) {
     g_backend = static_cast<ps5craft::Backend *>(backend);
-    g_daemon = MHD_start_daemon(MHD_USE_SELECT_INTERNALLY | MHD_USE_DEBUG,
-                                port, nullptr, nullptr, &api_handler, nullptr,
+    g_daemon = MHD_start_daemon(MHD_USE_INTERNAL_POLLING_THREAD, port,
+                                nullptr, nullptr, &api_handler, nullptr,
+                                MHD_OPTION_NOTIFY_COMPLETED, &request_completed,
+                                nullptr,
                                 MHD_OPTION_END);
     if (!g_daemon) return -1;
     return 0;
