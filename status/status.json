@@ -1,8 +1,8 @@
 {
   "project": "PS5Craft",
   "tagline": "PS5 Minecraft Java server manager",
-  "updated": "2026-11-01T16:55:00Z",
-  "overall_percent": 78,
+  "updated": "2026-11-01T17:10:00Z",
+  "overall_percent": 80,
   "links": [
     {
       "label": "Live dashboard",
@@ -16,9 +16,9 @@
   "eta": {
     "core_host_verified": "done",
     "ps5_native_binary": "built & signed; installable title folder at dist/PPSA90104.",
-    "note": "Catalog UI done. Remaining: PS5 CA bundle + console run, monitoring, native Vulkan UI."
+    "note": "Monitoring done. Remaining: PS5 console run of Vanilla 26.3 on Java 25, then native Vulkan UI."
   },
-  "state": "Full catalog flow verified end to end on the host: SmartTube-style catalog UI (software/version picker, install panel, progress bar, honest errors) \u2192 Vanilla 1.21.11 downloaded, SHA-1 verified, installed, started to Done, clean stop exit 0. Paper (Fill v3 SHA-256) and Fabric (no published checksum) also verified via API. Remaining: PS5 CA bundle, monitoring, console run, native Vulkan UI. CA bundle shipped at assets/ca-bundle.crt; main() prints a clear notice if PS5CRAFT_CA_BUNDLE/<data root>/ca-bundle.crt is absent. Install-path rule added: title files go under /data/homebrew/PPSA90104/ or /data/PlayKit/ (FTP is read-only).",
+  "state": "Monitoring implemented: read-only measured values from /proc and getifaddrs (process RSS/VMS, system MemTotal/MemAvailable, process CPU %, local IPs minus loopback), exposed on GET /api/system under `monitor`. Absent if unreadable, never simulated. Catalog UI + CA bundle done. Remaining: console verification, native Vulkan UI.",
   "phases": [
     {
       "id": 1,
@@ -50,16 +50,16 @@
     {
       "id": 5,
       "name": "Management features",
-      "percent": 92,
+      "percent": 95,
       "state": "active",
-      "detail": "Done: lifecycle, logs, console commands, file manager with binary upload, backups, persistence, software gating, catalog install with hash verification. Pending: catalog UI, monitoring."
+      "detail": "Done: lifecycle, logs, console commands, file manager with binary upload, backups, persistence, software gating, catalog install with hash verification, catalog UI, CA bundle, monitoring. Pending: console verification."
     },
     {
       "id": 6,
       "name": "Testing",
-      "percent": 82,
+      "percent": 90,
       "state": "active",
-      "detail": "Unit tests pass (incl. SHA-1/SHA-256 vectors). Vanilla, Paper and Fabric each installed through the API and ran to Done on the host. Pending: catalog UI tests, PS5 console verification."
+      "detail": "Unit tests pass (incl. SHA vectors, monitoring compiles). Vanilla/Paper/Fabric each installed through the API and ran to Done on host. Pending: PS5 console verification."
     }
   ],
   "todo": [
@@ -112,8 +112,8 @@
       "text": "Server catalog: Vanilla, Paper, Fabric install with hash verification"
     },
     {
-      "done": false,
-      "text": "Monitoring: CPU/memory/storage read-only"
+      "done": true,
+      "text": "Monitoring: measured /proc + getifaddrs values on /api/system"
     },
     {
       "done": true,

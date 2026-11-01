@@ -10,6 +10,7 @@
 #include "catalog.hpp"
 #include "hash.hpp"
 #include "http_client.hpp"
+#include "monitor.hpp"
 
 namespace ps5craft {
 
@@ -335,6 +336,45 @@ std::uint64_t Backend::instance_disk_bytes(const std::string &id) {
     const std::uint64_t bytes = sandbox_.tree_size("instances/" + id);
     disk_cache_[id] = {now, bytes};
     return bytes;
+}
+
+Json Backend::monitor_snapshot() {
+    std::lock_guard<std::mutex> lock(mutex_);
+    MonitorSnapshot m = ps5craft::monitor_sample(&prev_cpu_);
+    Json out = Json::object();
+
+    /* Process (this title) — measured from /proc, absent if unreadable. */
+    if (m.proc_mem_present) {
+        Json pm = Json::object();
+        if (m.proc_mem.vms_kb >= 0)
+            pm.set("vms_kb", static_cast<double>(m.proc_mem.vms_kb));
+        if (m.proc_mem.rss_kb >= 0)
+            pm.set("rss_kb", static_cast<double>(m.proc_mem.rss_kb));
+        out.set("process_memory", pm);
+    }
+
+    /* System memory — measured from /proc/meminfo. */
+    if (m.sys_mem_present) {
+        Json sm = Json::object();
+        if (m.sys_mem.total_kb >= 0)
+            sm.set("total_kb", static_cast<double>(m.sys_mem.total_kb));
+        if (m.sys_mem.available_kb >= 0)
+            sm.set("available_kb", static_cast<double>(m.sys_mem.available_kb));
+        out.set("system_memory", sm);
+    }
+
+    /* Process CPU percent — needs two samples; first call yields nothing. */
+    if (m.proc_cpu_present)
+        out.set("process_cpu_percent", m.proc_cpu_percent);
+
+    /* Local IPs — measured via getifaddrs, loopback excluded. */
+    if (m.net_present) {
+        Json arr = Json::array();
+        for (const auto &ip : m.ips) arr.push(ip);
+        out.set("ips", arr);
+    }
+
+    return out;
 }
 
 Instance *Backend::instance(const std::string &id) {

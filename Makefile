@@ -15,6 +15,7 @@ COMMON_SRCS := \
   core/json.cpp \
   core/hash.cpp \
   core/http_client.cpp \
+  core/monitor.cpp \
   core/catalog.cpp \
   core/fs.cpp \
   core/zip.cpp \

@@ -15,6 +15,7 @@
 #include "fs.hpp"
 #include "backup.hpp"
 #include "../platform/process.hpp"
+#include "../core/monitor.hpp"
 
 namespace ps5craft {
 
@@ -70,6 +71,9 @@ public:
 
     std::uint64_t instance_disk_bytes(const std::string &id);
 
+    /* Read-only measured monitoring values (process + system). */
+    Json monitor_snapshot();
+
     /* Download + verify server software into an instance. Runs on a worker
        thread; progress is read with install_status(). Returns an error string
        (empty on success). */
@@ -105,6 +109,9 @@ private:
     std::vector<std::string> order_; /* creation order */
     /* Directory size is expensive on big worlds; cache it briefly. */
     std::unordered_map<std::string, std::pair<std::int64_t, std::uint64_t>> disk_cache_;
+
+    /* CPU baseline sample for computing process percent between polls. */
+    CpuSample prev_cpu_;
 
     /* Registry persistence: <root>/instances.json. Caller holds mutex_. */
     void load_registry();

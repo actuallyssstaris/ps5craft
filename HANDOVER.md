@@ -34,7 +34,7 @@ Live pages from the development device:
 - `GET /api/fs/<path>`, `POST /api/fs/<path>?action=write|upload|mkdir|rename|delete|copy`
   (`upload` takes a raw body up to 256 MiB; verified byte-exact with a 56 MB JAR)
 - `GET /api/backup/<id>`, `POST /api/backup/<id>/create?full=1`, `POST /api/backup/<id>/<backup>/restore|delete`, `GET /api/backup/<id>/<backup>/download`
-- `GET /api/system` — volume capacity + per-instance directory sizes (30 s cache)
+- `GET /api/system` — volume capacity + per-instance directory sizes (30 s cache) plus measured monitoring (`monitor`: process memory, system memory, CPU %, IPs)
 - `GET /api/catalog`, `GET /api/catalog/<software>/versions`, `GET /api/catalog/<software>/<version>`
 - `POST /api/instances/<id>/install` (JSON `{software, version}`) and `GET /api/instances/<id>/install` for progress
 - `GET /api/status`; CORS; MHD query args; POST body accumulation fixed
@@ -144,7 +144,7 @@ Demo data lives in `/tmp/ps5craft_demo`. The `Demo Server` instance uses `tests/
 
 ## Next steps in order
 
-1. **PS5 CA bundle** — shipped as `assets/ca-bundle.crt` (Mozilla bundle) and copied into `dist/PPSA90104/assets/` by the build. On console the operator places it at `<data root>/ca-bundle.crt` or sets `PS5CRAFT_CA_BUNDLE`. `main()` prints a notice if neither is present so catalog HTTPS failures are explicit, not silent.
+1. **PS5 CA bundle** — shipped as `assets/ca-bundle.crt` (Mozilla bundle) and copied into `dist/PPSA90104/assets/` by the build. On console the operator places it at `<data root>/ca-bundle.crt` or sets `PS5CRAFT_CA_BUNDLE`. `main()` prints a clear notice if neither is present so catalog HTTPS failures are explicit, not silent. On console the operator places it at `<data root>/ca-bundle.crt` or sets `PS5CRAFT_CA_BUNDLE`. `main()` prints a notice if neither is present so catalog HTTPS failures are explicit, not silent.
 3. **Monitoring** — CPU/memory/storage, read-only, only values the console
    can measure.
 4. **Console verification** — install the signed title, run a Vanilla

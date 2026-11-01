@@ -544,6 +544,11 @@ extern "C" enum MHD_Result api_handler(void *cls, struct MHD_Connection *conn,
                 sizes.set(id, static_cast<double>(g_backend->instance_disk_bytes(id)));
         }
         out.set("instances", sizes);
+
+        /* Read-only measured monitoring values (process/system). */
+        ps5craft::Json mon = g_backend->monitor_snapshot();
+        if (mon.is_object()) out.set("monitor", mon);
+
         return send_json(conn, MHD_HTTP_OK, out);
     }
 
