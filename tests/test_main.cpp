@@ -7,6 +7,7 @@
 #include <unistd.h>
 #include <vector>
 
+#include "../core/hash.hpp"
 #include "../core/json.hpp"
 #include "../core/fs.hpp"
 #include "../core/zip.hpp"
@@ -56,6 +57,41 @@ static void test_json() {
     CHECK(parsed["items"].is_array());
     CHECK(parsed["items"].items().size() == 2);
     CHECK(parsed["missing"].is_null());
+    std::printf("ok\n");
+}
+
+static void test_hash() {
+    std::printf("test_hash ... ");
+    CHECK(sha1_hex("", 0) == "da39a3ee5e6b4b0d3255bfef95601890afd80709");
+    CHECK(sha1_hex("abc", 3) == "a9993e364706816aba3e25717850c26c9cd0d89d");
+    CHECK(sha1_hex("The quick brown fox jumps over the lazy dog", 43) ==
+          "2fd4e1c67a2d28fced849ee1bb76e7391b93eb12");
+    CHECK(sha256_hex("", 0) ==
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855");
+    CHECK(sha256_hex("abc", 3) ==
+          "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
+
+    /* A >64-byte input exercises the block loop and padding. */
+    const std::string big(1000000, 'a');
+    CHECK(sha1_hex(big.data(), big.size()) ==
+          "34aa973cd4c4daa4f61eeb2bdbad27316534016f");
+    CHECK(sha256_hex(big.data(), big.size()) ==
+          "cdc76e5c9914fb9281a1c7e284d73e67f1809a48a497200e046d39ccc7112cd0");
+
+    /* File hashing matches the in-memory result. */
+    const std::string path = "/tmp/ps5craft_hash_test.bin";
+    std::FILE *f = std::fopen(path.c_str(), "wb");
+    CHECK(f != nullptr);
+    if (f) {
+        std::fwrite(big.data(), 1, big.size(), f);
+        std::fclose(f);
+        std::string got;
+        CHECK(sha1_file_hex(path, got));
+        CHECK(got == "34aa973cd4c4daa4f61eeb2bdbad27316534016f");
+        CHECK(sha256_file_hex(path, got));
+        CHECK(got == "cdc76e5c9914fb9281a1c7e284d73e67f1809a48a497200e046d39ccc7112cd0");
+        std::remove(path.c_str());
+    }
     std::printf("ok\n");
 }
 
@@ -325,6 +361,7 @@ static void test_process_spawn() {
 
 int main() {
     test_json();
+    test_hash();
     test_fs_sandbox();
     test_zip();
     test_instance_state();

@@ -88,6 +88,10 @@ public:
     /* Write eula.txt for this instance and remember the flag. */
     bool write_eula();
 
+    /* Record the installed server software after a verified download. */
+    void apply_software(const std::string &version, const std::string &software,
+                        const std::string &jar_path);
+
     /* Recent process output (bounded ring buffer). */
     std::string logs() const;
 

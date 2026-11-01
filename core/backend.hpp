@@ -2,9 +2,11 @@
 /* Shared backend: instance registry, lifecycle, JSON snapshot. */
 #pragma once
 
+#include <atomic>
 #include <memory>
 #include <mutex>
 #include <string>
+#include <thread>
 #include <unordered_map>
 #include <vector>
 
@@ -19,6 +21,7 @@ namespace ps5craft {
 class Backend {
 public:
     explicit Backend(std::string data_root);
+    ~Backend();
 
     const std::string &data_root() const { return sandbox_.root(); }
 
@@ -67,14 +70,38 @@ public:
 
     std::uint64_t instance_disk_bytes(const std::string &id);
 
+    /* Download + verify server software into an instance. Runs on a worker
+       thread; progress is read with install_status(). Returns an error string
+       (empty on success). */
+    std::string install_start(const std::string &id, const std::string &software,
+                              const std::string &version);
+    Json install_status(const std::string &id) const;
+
     Sandbox &sandbox() { return sandbox_; }
     const Sandbox &sandbox() const { return sandbox_; }
 
 private:
+    struct InstallJob {
+        std::thread thread;
+        std::atomic<bool> done{false};
+        std::atomic<bool> failed{false};
+        std::atomic<std::uint64_t> received{0};
+        std::atomic<std::uint64_t> total{0};
+        std::string software;
+        std::string version;
+        std::string error;
+        std::string note;
+    };
+    /* Worker thread: resolve, download, verify, then record the result. */
+    void run_install(const std::string &id,
+                     const std::shared_ptr<InstallJob> &job,
+                     const std::string &software, const std::string &version);
+
     Sandbox sandbox_;
     BackupManager backup_mgr_;
     mutable std::mutex mutex_;
     std::unordered_map<std::string, std::unique_ptr<Instance>> instances_;
+    std::unordered_map<std::string, std::shared_ptr<InstallJob>> installs_;
     std::vector<std::string> order_; /* creation order */
     /* Directory size is expensive on big worlds; cache it briefly. */
     std::unordered_map<std::string, std::pair<std::int64_t, std::uint64_t>> disk_cache_;

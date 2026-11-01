@@ -2,8 +2,14 @@
 #include "backend.hpp"
 
 #include <algorithm>
+#include <cctype>
+#include <cstdio>
 #include <ctime>
 #include <sstream>
+
+#include "catalog.hpp"
+#include "hash.hpp"
+#include "http_client.hpp"
 
 namespace ps5craft {
 
@@ -35,6 +41,17 @@ std::string safe_id(const std::string &name) {
 Backend::Backend(std::string data_root)
     : sandbox_(std::move(data_root)), backup_mgr_(sandbox_) {
     load_registry();
+}
+
+Backend::~Backend() {
+    std::vector<std::shared_ptr<InstallJob>> jobs;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        for (auto &kv : installs_) jobs.push_back(kv.second);
+    }
+    for (auto &job : jobs) {
+        if (job->thread.joinable()) job->thread.join();
+    }
 }
 
 void Backend::load_registry() {
@@ -138,11 +155,174 @@ bool Backend::remove_instance(const std::string &id) {
         it->second->state() == InstanceState::kStopping) {
         return false; /* refuse to remove a running instance */
     }
+    auto job = installs_.find(id);
+    if (job != installs_.end() && !job->second->done.load())
+        return false; /* a download is in flight */
     instances_.erase(it);
     order_.erase(std::find(order_.begin(), order_.end(), id), order_.end());
     disk_cache_.erase(id);
     save_registry();
     return true;
+}
+
+std::string Backend::install_start(const std::string &id,
+                                   const std::string &software,
+                                   const std::string &version) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    auto it = instances_.find(id);
+    if (it == instances_.end()) return "unknown instance";
+
+    const InstanceState state = it->second->state();
+    if (state == InstanceState::kRunning || state == InstanceState::kStarting ||
+        state == InstanceState::kStopping) {
+        return "stop the server before installing software";
+    }
+
+    bool known = false;
+    for (const auto &s : catalog_software()) {
+        if (s.id == software && s.supported) known = true;
+    }
+    if (!known) return "unsupported software: " + software;
+
+    auto existing = installs_.find(id);
+    if (existing != installs_.end() && !existing->second->done.load())
+        return "an install is already running for this instance";
+
+    auto job = std::make_shared<InstallJob>();
+    job->software = software;
+    job->version = version;
+    installs_[id] = job;
+    job->thread = std::thread([this, id, job, software, version]() {
+        run_install(id, job, software, version);
+    });
+    return std::string();
+}
+
+void Backend::run_install(const std::string &id,
+                          const std::shared_ptr<InstallJob> &job,
+                          const std::string &software,
+                          const std::string &version) {
+    auto fail = [&job](const std::string &why) {
+        job->error = why;
+        job->failed = true;
+        job->done = true;
+    };
+
+    SoftwareArtifact artifact;
+    std::string error;
+    if (!catalog_resolve(software, version, artifact, error)) {
+        fail(error);
+        return;
+    }
+    job->version = artifact.version;
+    job->note = artifact.note;
+    if (artifact.size > 0) job->total = static_cast<std::uint64_t>(artifact.size);
+
+    std::string final_path;
+    if (!sandbox_.resolve("instances/" + id + "/server.jar", final_path)) {
+        fail("invalid instance directory");
+        return;
+    }
+    const std::string part_path = final_path + ".part";
+
+    const bool downloaded = http_download(
+        artifact.url, part_path,
+        [&job](std::uint64_t received, std::uint64_t total) {
+            job->received = received;
+            if (total > 0) job->total = total;
+            return true;
+        },
+        error, 1800);
+    if (!downloaded) {
+        std::remove(part_path.c_str());
+        fail(error);
+        return;
+    }
+
+    /* Verify what we got against the publisher's checksum. A source without a
+       published checksum (Fabric) is accepted, but the note says so. */
+    std::string expected;
+    std::string actual;
+    bool have_expected = false;
+    if (!artifact.sha1.empty()) {
+        expected = artifact.sha1;
+        have_expected = true;
+        if (!sha1_file_hex(part_path, actual)) {
+            std::remove(part_path.c_str());
+            fail("cannot read the downloaded file");
+            return;
+        }
+    } else if (!artifact.sha256.empty()) {
+        expected = artifact.sha256;
+        have_expected = true;
+        if (!sha256_file_hex(part_path, actual)) {
+            std::remove(part_path.c_str());
+            fail("cannot read the downloaded file");
+            return;
+        }
+    }
+    for (char &c : expected) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    for (char &c : actual) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    if (have_expected && expected != actual) {
+        std::remove(part_path.c_str());
+        fail("checksum mismatch: expected " + expected + ", got " + actual);
+        return;
+    }
+    if (artifact.size > 0) {
+        FileEntry fe;
+        if (sandbox_.entry_stat("instances/" + id + "/server.jar.part", fe) &&
+            static_cast<std::int64_t>(fe.size) != artifact.size) {
+            std::remove(part_path.c_str());
+            fail("size mismatch: expected " + std::to_string(artifact.size) +
+                 " bytes, got " + std::to_string(fe.size));
+            return;
+        }
+    }
+
+    std::remove(final_path.c_str());
+    if (std::rename(part_path.c_str(), final_path.c_str()) != 0) {
+        std::remove(part_path.c_str());
+        fail("cannot move the downloaded file into place");
+        return;
+    }
+
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        auto it = instances_.find(id);
+        if (it == instances_.end()) {
+            fail("instance was removed during the install");
+            return;
+        }
+        it->second->apply_software(artifact.version, artifact.software,
+                                   "server.jar");
+        disk_cache_.erase(id);
+        save_registry();
+    }
+    job->done = true;
+}
+
+Json Backend::install_status(const std::string &id) const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    Json out = Json::object();
+    auto it = installs_.find(id);
+    if (it == installs_.end()) {
+        out.set("active", false);
+        out.set("done", false);
+        out.set("failed", false);
+        return out;
+    }
+    const auto &job = it->second;
+    const bool done = job->done.load();
+    out.set("active", !done);
+    out.set("done", done);
+    out.set("failed", job->failed.load());
+    out.set("software", job->software);
+    out.set("version", job->version);
+    out.set("received", static_cast<std::int64_t>(job->received.load()));
+    out.set("total", static_cast<std::int64_t>(job->total.load()));
+    out.set("error", job->error);
+    out.set("note", job->note);
+    return out;
 }
 
 std::uint64_t Backend::instance_disk_bytes(const std::string &id) {

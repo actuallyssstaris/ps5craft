@@ -157,6 +157,15 @@ bool Instance::write_eula() {
     return true;
 }
 
+void Instance::apply_software(const std::string &version,
+                              const std::string &software,
+                              const std::string &jar_path) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    config_.version = version;
+    config_.software = software;
+    config_.jar_path = jar_path;
+}
+
 std::string Instance::logs() const {
     std::lock_guard<std::mutex> lock(mutex_);
     if (!log_) return std::string();

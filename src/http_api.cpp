@@ -10,6 +10,7 @@
 #include <string>
 
 #include "../core/backend.hpp"
+#include "../core/catalog.hpp"
 #include "../core/instance.hpp"
 #include "../core/json.hpp"
 #include "../core/fs.hpp"
@@ -242,6 +243,16 @@ extern "C" enum MHD_Result api_handler(void *cls, struct MHD_Connection *conn,
             return send_json(conn, ok ? MHD_HTTP_OK : MHD_HTTP_CONFLICT, out);
         }
         if (std::strcmp(method, "GET") == 0 && parts.size() == 4 &&
+            parts[3] == "install") {
+            if (!g_backend->instance(parts[2])) {
+                ps5craft::Json err = ps5craft::Json::object();
+                err.set("error", "not found");
+                return send_json(conn, MHD_HTTP_NOT_FOUND, err);
+            }
+            return send_json(conn, MHD_HTTP_OK,
+                             g_backend->install_status(parts[2]));
+        }
+        if (std::strcmp(method, "GET") == 0 && parts.size() == 4 &&
             parts[3] == "logs") {
             if (!g_backend->instance(parts[2])) {
                 ps5craft::Json err = ps5craft::Json::object();
@@ -283,6 +294,31 @@ extern "C" enum MHD_Result api_handler(void *cls, struct MHD_Connection *conn,
                 return send_json(conn, ok ? MHD_HTTP_OK : MHD_HTTP_INTERNAL_SERVER_ERROR,
                                  out);
             }
+            if (action == "install") {
+                ps5craft::Json body;
+                if (!ps5craft::Json::parse(post_body(con_cls), body) ||
+                    !body.is_object()) {
+                    ps5craft::Json err = ps5craft::Json::object();
+                    err.set("error", "expected a JSON body");
+                    return send_json(conn, MHD_HTTP_BAD_REQUEST, err);
+                }
+                const std::string software = body["software"].as_string();
+                const std::string version = body["version"].as_string("latest");
+                if (software.empty()) {
+                    ps5craft::Json err = ps5craft::Json::object();
+                    err.set("error", "software is required");
+                    return send_json(conn, MHD_HTTP_BAD_REQUEST, err);
+                }
+                const std::string error =
+                    g_backend->install_start(parts[2], software, version);
+                if (!error.empty()) {
+                    ps5craft::Json err = ps5craft::Json::object();
+                    err.set("error", error);
+                    return send_json(conn, MHD_HTTP_CONFLICT, err);
+                }
+                return send_json(conn, MHD_HTTP_ACCEPTED,
+                                 g_backend->install_status(parts[2]));
+            }
             if (action == "command") {
                 std::string line = post_body(con_cls);
                 if (line.empty()) line = query_param(conn, "cmd");
@@ -301,6 +337,74 @@ extern "C" enum MHD_Result api_handler(void *cls, struct MHD_Connection *conn,
             err.set("error", "unknown action");
             return send_json(conn, MHD_HTTP_BAD_REQUEST, err);
         }
+    }
+
+    /* /api/catalog  (server software catalog) */
+    if (std::strcmp(method, "GET") == 0 && parts.size() >= 2 &&
+        parts[0] == "api" && parts[1] == "catalog") {
+        if (parts.size() == 2) {
+            ps5craft::Json arr = ps5craft::Json::array();
+            for (const auto &s : ps5craft::catalog_software()) {
+                ps5craft::Json item = ps5craft::Json::object();
+                item.set("id", s.id);
+                item.set("name", s.name);
+                item.set("description", s.description);
+                item.set("supported", s.supported);
+                item.set("note", s.note);
+                arr.push(item);
+            }
+            ps5craft::Json root = ps5craft::Json::object();
+            root.set("software", arr);
+            return send_json(conn, MHD_HTTP_OK, root);
+        }
+        const std::string software = parts[2];
+        if (parts.size() == 4 && parts[3] == "versions") {
+            std::vector<ps5craft::CatalogVersion> versions;
+            std::string error;
+            if (!ps5craft::catalog_versions(software, versions, error)) {
+                ps5craft::Json err = ps5craft::Json::object();
+                err.set("error", error);
+                return send_json(conn, MHD_HTTP_BAD_GATEWAY, err);
+            }
+            ps5craft::Json arr = ps5craft::Json::array();
+            for (const auto &v : versions) {
+                ps5craft::Json item = ps5craft::Json::object();
+                item.set("id", v.id);
+                item.set("channel", v.channel);
+                item.set("released", v.released);
+                item.set("installable", v.installable);
+                item.set("note", v.note);
+                arr.push(item);
+            }
+            ps5craft::Json root = ps5craft::Json::object();
+            root.set("software", software);
+            root.set("versions", arr);
+            return send_json(conn, MHD_HTTP_OK, root);
+        }
+        if (parts.size() == 4) {
+            ps5craft::SoftwareArtifact artifact;
+            std::string error;
+            if (!ps5craft::catalog_resolve(software, parts[3], artifact,
+                                           error)) {
+                ps5craft::Json err = ps5craft::Json::object();
+                err.set("error", error);
+                return send_json(conn, MHD_HTTP_BAD_GATEWAY, err);
+            }
+            ps5craft::Json root = ps5craft::Json::object();
+            root.set("software", artifact.software);
+            root.set("version", artifact.version);
+            root.set("url", artifact.url);
+            root.set("file_name", artifact.file_name);
+            root.set("sha1", artifact.sha1);
+            root.set("sha256", artifact.sha256);
+            root.set("size", static_cast<std::int64_t>(artifact.size));
+            root.set("java_major", artifact.java_major);
+            root.set("note", artifact.note);
+            return send_json(conn, MHD_HTTP_OK, root);
+        }
+        ps5craft::Json err = ps5craft::Json::object();
+        err.set("error", "unknown catalog route");
+        return send_json(conn, MHD_HTTP_NOT_FOUND, err);
     }
 
     /* /api/fs/:...  (sandboxed file operations) */

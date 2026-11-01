@@ -1,8 +1,8 @@
 {
   "project": "PS5Craft",
   "tagline": "PS5 Minecraft Java server manager",
-  "updated": "2026-11-01T15:40:00Z",
-  "overall_percent": 70,
+  "updated": "2026-11-01T16:10:00Z",
+  "overall_percent": 72,
   "links": [
     {
       "label": "Live dashboard",
@@ -16,9 +16,9 @@
   "eta": {
     "core_host_verified": "done",
     "ps5_native_binary": "built & signed; installable title folder at dist/PPSA90104.",
-    "note": "Core host-verified with a real server. Remaining: catalog with SHA-256, monitoring, console test, native Vulkan UI."
+    "note": "Catalog backend done. Remaining: catalog UI, monitoring, PS5 CA bundle + console run, native Vulkan UI."
   },
-  "state": "Real Minecraft verified: Vanilla 1.21.11 downloaded from Mojang, uploaded through the dashboard (56 MB, SHA-1 match), started to \"Done (12.049s)\", answered a console command, backed up the live world, restored it and stopped with exit 0. Binary upload works. Catalog + TLS client next.",
+  "state": "Server catalog implemented and verified on the host: Vanilla (SHA-1), Paper (Fill v3, SHA-256) and Fabric (no published checksum, reported as such) install through the API and run to Done with clean stops. Dashboard catalog picker is the remaining UI piece.",
   "phases": [
     {
       "id": 1,
@@ -50,16 +50,16 @@
     {
       "id": 5,
       "name": "Management features",
-      "percent": 85,
+      "percent": 92,
       "state": "active",
-      "detail": "Done: lifecycle, logs, console commands, file manager with binary upload, backups, persistence, software gating. Pending: server catalog with SHA-256 verification, monitoring."
+      "detail": "Done: lifecycle, logs, console commands, file manager with binary upload, backups, persistence, software gating, catalog install with hash verification. Pending: catalog UI, monitoring."
     },
     {
       "id": 6,
       "name": "Testing",
-      "percent": 80,
+      "percent": 82,
       "state": "active",
-      "detail": "Unit tests pass; full cycle with real Vanilla 1.21.11 on host passes. Pending: catalog tests, PS5 console verification."
+      "detail": "Unit tests pass (incl. SHA-1/SHA-256 vectors). Vanilla, Paper and Fabric each installed through the API and ran to Done on the host. Pending: catalog UI tests, PS5 console verification."
     }
   ],
   "todo": [
@@ -104,8 +104,8 @@
       "text": "Dashboard rebuilt: PS5SX2 palette + Pelican layout, disk usage, grid/table"
     },
     {
-      "done": false,
-      "text": "Server catalog: Mojang manifest + Paper API + Fabric meta, SHA-256 verify"
+      "done": true,
+      "text": "Server catalog: Vanilla, Paper, Fabric install with hash verification"
     },
     {
       "done": false,
@@ -118,6 +118,10 @@
     {
       "done": true,
       "text": "Real Vanilla 1.21.11 run on host: start, command, backup, restore, stop"
+    },
+    {
+      "done": false,
+      "text": "Dashboard catalog picker and install progress"
     },
     {
       "done": false,

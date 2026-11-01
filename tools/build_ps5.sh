@@ -47,7 +47,7 @@ cc() { "$CLANG" -std=c++17 -O2 -Wall -Wextra -fno-exceptions -fno-rtti \
 
 # App objects.
 objs=()
-for src in core/json.cpp core/fs.cpp core/zip.cpp core/backup.cpp core/instance.cpp core/server.cpp core/backend.cpp \
+for src in core/json.cpp core/hash.cpp core/http_client.cpp core/catalog.cpp core/fs.cpp core/zip.cpp core/backup.cpp core/instance.cpp core/server.cpp core/backend.cpp \
            core/platform_shims.cpp platform/process_host.cpp src/main.cpp src/http_api.cpp; do
   obj="$build/obj/$(basename "$src" .cpp).o"
   cc "$root/$src" "$obj"
@@ -73,6 +73,10 @@ echo "==> [ps5] linking"
   -lkernel -lSceLibcInternal \
   "$sdk/target/lib/libc++.a" "$sdk/target/lib/libc++abi.a" \
   "$pacbrew/lib/libmicrohttpd.a" \
+  "$pacbrew/lib/libcurl.a" \
+  "$pacbrew/lib/libpsl.a" \
+  "$pacbrew/lib/libssh2.a" \
+  "$pacbrew/lib/libiconv.a" \
   "$pacbrew/lib/libz.a" \
   "$pacbrew/lib/libssl.a" \
   "$pacbrew/lib/libcrypto.a" \

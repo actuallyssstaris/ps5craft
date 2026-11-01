@@ -13,6 +13,9 @@ LDFLAGS :=
 
 COMMON_SRCS := \
   core/json.cpp \
+  core/hash.cpp \
+  core/http_client.cpp \
+  core/catalog.cpp \
   core/fs.cpp \
   core/zip.cpp \
   core/backup.cpp \
@@ -34,11 +37,11 @@ host: build/host/ps5craft_test build/host/ps5craft_http build/host/ps5craft_host
 
 build/host/ps5craft_host: $(COMMON_OBJS) $(APP_OBJS)
 	@mkdir -p $(dir $@)
-	$(CXX) $(CXXFLAGS) $(COMMON_OBJS) $(APP_OBJS) -o $@ -lmicrohttpd -lpthread
+	$(CXX) $(CXXFLAGS) $(COMMON_OBJS) $(APP_OBJS) -o $@ -lmicrohttpd -lcurl -lpthread
 
 build/host/ps5craft_http: $(COMMON_OBJS) $(HTTP_OBJS)
 	@mkdir -p $(dir $@)
-	$(CXX) $(CXXFLAGS) $(COMMON_OBJS) $(HTTP_OBJS) -o $@ $(LDFLAGS)
+	$(CXX) $(CXXFLAGS) $(COMMON_OBJS) $(HTTP_OBJS) -o $@ $(LDFLAGS) -lcurl
 
 build/host/%.o: %.cpp
 	@mkdir -p $(dir $@)
@@ -46,7 +49,7 @@ build/host/%.o: %.cpp
 
 build/host/ps5craft_test: $(COMMON_OBJS) $(TEST_OBJS)
 	@mkdir -p $(dir $@)
-	$(CXX) $(CXXFLAGS) $(COMMON_OBJS) $(TEST_OBJS) -o $@ $(LDFLAGS)
+	$(CXX) $(CXXFLAGS) $(COMMON_OBJS) $(TEST_OBJS) -o $@ $(LDFLAGS) -lcurl
 
 test: build/host/ps5craft_test
 	./build/host/ps5craft_test

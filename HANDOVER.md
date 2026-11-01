@@ -4,7 +4,7 @@
 
 Repo: `https://github.com/actuallyssstaris/ps5craft` (public, branch `main`)
 Title ID: `PPSA90104`
-Overall: **~62%**. Core backend, real process supervision, backups, console/logs, persistence and the dashboard are implemented and host-tested. PS5 title builds + signs into `dist/PPSA90104/`.
+Overall: **~72%**. Core backend, real process supervision, backups, console/logs, persistence, the dashboard and the server software catalog are implemented and host-tested. PS5 title builds + signs into `dist/PPSA90104/`.
 
 Live pages from the development device:
 - Dashboard: `http://192.0.0.4:8080/` (host build of the same HTTP API)
@@ -19,7 +19,10 @@ Live pages from the development device:
 - `backup` — create (world or full), manifest inside archive, list newest-first, restore (validates archive before deleting current world), delete, traversal-safe backup ids
 - `instance` — owns `Server` + `LogRing`; start spawns, stop sends Minecraft `stop` then SIGTERM/SIGKILL at deadline, poll reaps and updates state, restart, stdin commands, log snapshot
 - `server` — JVM command line, process spawn, output drain, stop ladder, per-instance `server.properties` and `eula.txt`
-- `backend` — registry + persistence (`instances.json`), lifecycle, file ops, backups, logs/commands/eula; software gating: only `vanilla`, `fabric`, `paper`
+- `hash` — SHA-1 and SHA-256 (FIPS 180-4), in-memory and streaming file hashing
+- `http_client` — libcurl wrapper: GET to memory, GET to file with progress, CA bundle override, timeouts, low-speed abort
+- `catalog` — Mojang manifest v2, Paper Fill v3, Fabric meta; resolves version → URL + SHA-1/SHA-256 + size + required Java major
+- `backend` — registry + persistence (`instances.json`), lifecycle, file ops, backups, logs/commands/eula; software gating: only `vanilla`, `fabric`, `paper`; background install jobs with progress
 
 **Platform** (`platform/process_host.cpp`): fork+execve, stdout/stderr pipe into ring buffer, stdin pipe, waitpid, signals. FDs closed on reap.
 
@@ -32,6 +35,8 @@ Live pages from the development device:
   (`upload` takes a raw body up to 256 MiB; verified byte-exact with a 56 MB JAR)
 - `GET /api/backup/<id>`, `POST /api/backup/<id>/create?full=1`, `POST /api/backup/<id>/<backup>/restore|delete`, `GET /api/backup/<id>/<backup>/download`
 - `GET /api/system` — volume capacity + per-instance directory sizes (30 s cache)
+- `GET /api/catalog`, `GET /api/catalog/<software>/versions`, `GET /api/catalog/<software>/<version>`
+- `POST /api/instances/<id>/install` (JSON `{software, version}`) and `GET /api/instances/<id>/install` for progress
 - `GET /api/status`; CORS; MHD query args; POST body accumulation fixed
 
 **Dashboard** (`web/index.html`): PS5SX2 visual language (violet gradient, translucent cards, pill controls) with Pelican's information architecture (status-striped server cards, summary tiles, console-first server page). Overview with grid/table views, per-instance disk usage and volume capacity; server detail with console log (2 s poll), inline command input, file manager, backups and settings. Responsive for phone.
@@ -66,6 +71,54 @@ Minecraft **26.3** requires Java **25** (`javaVersion.majorVersion: 25`).
 The host has Java 21, which is why the real run uses 1.21.11. The PS5 title
 bundles Java 25, so it can run 26.3; the catalog must carry this mapping.
 
+## Server catalog (host-verified, 2026-11-01)
+
+Downloads follow the Pelican vanilla egg path (manifest → version JSON →
+`downloads.server.url`), with two additions Pelican does not do: the
+publisher checksum is verified before the JAR is moved into place, and the
+download runs as a background job with visible progress.
+
+| Software | Source | Checksum |
+|---|---|---|
+| Vanilla | `piston-meta.mojang.com` manifest v2 → version JSON | SHA-1 |
+| Paper | `fill.papermc.io/v3` (the v2 API is sunset) | SHA-256 |
+| Fabric | `meta.fabricmc.net/v2` loader + installer | none published |
+
+Verified end to end on the host with Minecraft **1.21.11** (Java 21):
+
+- **Vanilla**: installed by the API, 56,327,581 bytes, SHA-1
+  `64bb6d76…` matched. Start → `Done (12.049s)!`, command answered,
+  backup + restore, clean stop.
+- **Paper**: build 132, 54,846,016 bytes, SHA-256 `5ffef465…` matched.
+  Start → `Done (58.382s)!` (it remaps the server on first boot),
+  command answered, clean stop, exit 0.
+- **Fabric**: launcher jar installed (no published checksum; the response
+  says so), loader 0.20.1 + installer 1.1.2. First start downloaded the
+  libraries, `Done (21.816s)!`, command answered, clean stop, exit 0.
+
+Install behaviour:
+
+- Refused while the server is running, starting or stopping.
+- Refused for software that is not in the supported list.
+- Downloads to `server.jar.part`, verifies hash and size, then renames.
+- On mismatch the partial file is deleted and the job reports the expected
+  and actual hash.
+- The instance `version`, `software` and `jar_path` are persisted after a
+  successful install.
+
+PS5 notes:
+
+- `libcurl.a` from the pacbrew sysroot links statically; the title links
+  `libcurl`, `libpsl`, `libssh2`, `libzstd`, `libiconv`, `libssl`,
+  `libcrypto`, `libz`.
+- The console has no system CA store. Put a Mozilla bundle at
+  `<data root>/ca-bundle.crt` or set `PS5CRAFT_CA_BUNDLE`.
+- Paper Fill requires a descriptive User-Agent with contact information;
+  `http_client` sends `PS5Craft/0.1 (+https://github.com/actuallyssstaris/ps5craft)`.
+
+Not done yet: the dashboard still has no catalog picker. The API is
+complete and tested; the UI is the next piece.
+
 ## Run the host build
 
 ```sh
@@ -85,15 +138,24 @@ Demo data lives in `/tmp/ps5craft_demo`. The `Demo Server` instance uses `tests/
 3. **HTTP = libmicrohttpd**, polling, no WebSocket.
 4. **Filesystem sandbox.** All ops confined to a data root; lexical `resolve()` rejects `..`/absolute/NUL.
 5. **Software honesty.** Only Vanilla, Fabric, Paper are selectable. Spigot/Purpur/Pufferfish/Forge/NeoForge/Quilt are shown disabled until tested on the console; the backend rejects them.
-6. **Graphics.** Native Vulkan UI still blocked (see Blockers).
+6. **Downloads use libcurl.** Static on PS5 (OpenSSL backend), shared on
+   host. No hand-rolled TLS, no shelling out to `curl`/`wget`/`jq`.
+7. **Graphics.** Native Vulkan UI still blocked (see Blockers).
 
 ## Next steps in order
 
-1. **Server catalog** — Mojang version manifest + Paper API + Fabric meta; download, SHA-256 verify, install into an instance. Needs an HTTP client on PS5; decide between a small TLS client over the existing socket layer and a vendored library.
-2. **Real Minecraft run on host** — drop a Vanilla/Paper JAR into an instance, set `java_path` to a Java 25 binary, run a full start → join → backup → stop cycle.
-3. **Monitoring** — CPU/memory/storage, read-only, labelled system-wide.
-4. **Console verification** — install the signed title, start a server, confirm the dashboard works from another machine.
-5. **Native Vulkan UI** — once the pinned PS5_PayloadSDK fork and RADV archive are available.
+1. **Catalog UI** — software + version picker in the dashboard, install
+   button, progress bar, honest errors. The API already returns everything
+   the page needs.
+2. **PS5 CA bundle** — ship `ca-bundle.crt` with the title and document the
+   path so HTTPS works on the console.
+3. **Monitoring** — CPU/memory/storage, read-only, only values the console
+   can measure.
+4. **Console verification** — install the signed title, run a Vanilla
+   26.3 server with the bundled Java 25, open the dashboard from another
+   machine.
+5. **Native Vulkan UI** — once the pinned PS5_PayloadSDK fork and RADV
+   archive are available.
 
 ## Blockers
 
@@ -108,7 +170,8 @@ Demo data lives in `/tmp/ps5craft_demo`. The `Demo Server` instance uses `tests/
 ## Repository layout
 
 ```
-core/           shared backend (json, fs, zip, backup, instance, server, backend, shims)
+core/           shared backend (json, hash, http_client, catalog, fs, zip, backup,
+                instance, server, backend, shims)
 platform/       host process supervisor
 src/            native title: main.cpp, http_api.cpp (+hpp)
 web/            dashboard index.html
@@ -151,4 +214,5 @@ EOF
 - No feature claimed complete until it ran on the PS5 Java runtime.
 - No placeholder success responses, no fake implementations.
 - Update `status/status.json` after every coherent change.
+- A catalog entry is only marked `supported` after it ran on this build.
 - Push per milestone to GitHub, never force-push.

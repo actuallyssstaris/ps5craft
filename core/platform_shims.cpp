@@ -7,7 +7,7 @@
    no-op stub. */
 #include <search.h>
 #include <stdlib.h>
-#include <sys/socket.h>
+#include <time.h>
 #include <unistd.h>
 #include <fcntl.h>
 
@@ -90,6 +90,76 @@ extern "C" struct tm *localtime_s(const time_t *timep, struct tm *result);
 struct tm *localtime_r(const time_t *timep, struct tm *result) {
     if (!timep || !result) return 0;
     return localtime_s(timep, result);
+}
+
+/* libcurl/OpenSSL use _longjmp, getpwuid_r and if_nametoindex; the PS5 libc
+   exports longjmp but not these spellings. */
+#include <setjmp.h>
+void _longjmp(jmp_buf env, int val) { longjmp(env, val); }
+int _setjmp(jmp_buf env) { return setjmp(env); }
+
+#include <pwd.h>
+int getpwuid_r(uid_t uid, struct passwd *pwd, char *buf, size_t buflen,
+               struct passwd **result) {
+    (void)uid; (void)pwd; (void)buf; (void)buflen;
+    if (result) *result = 0;
+    return 0;
+}
+
+#include <net/if.h>
+unsigned int if_nametoindex(const char *name) {
+    (void)name;
+    return 0;
+}
+
+/* recvmmsg is optional for DTLS; OpenSSL only reaches it for UDP BIOs.
+   sys/socket.h is deliberately not included here: it would redeclare
+   recvmmsg and C++ forbids redefining it. Pointer params need only
+   forward declarations. */
+struct mmsghdr;
+struct timespec;
+extern "C" ssize_t recvmmsg(int fd, struct mmsghdr *vec, size_t vlen,
+                            int flags, const struct timespec *timeout) {
+    (void)fd; (void)vec; (void)vlen; (void)flags; (void)timeout;
+    return -1;
+}
+
+/* sendmmsg: same family as recvmmsg, only used for datagram BIOs. */
+extern "C" ssize_t sendmmsg(int fd, struct mmsghdr *vec, size_t vlen,
+                            int flags) {
+    (void)fd; (void)vec; (void)vlen; (void)flags;
+    return -1;
+}
+
+/* dladdr: OpenSSL's DSO loader uses it to map addresses to shared object
+   paths; the PS5 libc does not export it. Stub: never reached here. */
+#include <dlfcn.h>
+int dladdr(const void *addr, Dl_info *info) {
+    (void)addr;
+    if (info) {
+        info->dli_fname = 0;
+        info->dli_fbase = 0;
+        info->dli_sname = 0;
+        info->dli_saddr = 0;
+    }
+    return 0;
+}
+
+/* libcurl was built with zstd content-encoding, but the PS5 SDK stubs do
+   not export ZSTD_trace_*. Provide no-op stubs; curl tolerates a null
+   decompress stream and falls back cleanly without encoding. */
+extern "C" {
+void *ZSTD_createDStream(void) { return 0; }
+size_t ZSTD_decompressStream(void *dstream, size_t *dst_pos, size_t *dst_size,
+                             const void *src, size_t *src_pos,
+                             size_t src_size) {
+    (void)dstream; (void)dst_pos; (void)dst_size; (void)src; (void)src_pos;
+    (void)src_size;
+    return 0;
+}
+void ZSTD_freeDStream(void *dstream) { (void)dstream; }
+unsigned int ZSTD_isError(size_t code) { return code != 0; }
+unsigned int ZSTD_versionNumber(void) { return 0; }
 }
 
 /* Exception entry points referenced by libc++abi but never reached
