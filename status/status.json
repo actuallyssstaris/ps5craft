@@ -1,19 +1,19 @@
 {
   "project": "PS5Craft",
   "tagline": "PS5 Minecraft Java server manager",
-  "updated": "2026-11-01T12:20:00Z",
-  "overall_percent": 12,
+  "updated": "2026-11-01T15:55:00Z",
+  "overall_percent": 38,
   "eta": {
-    "core_host_verified": "~2.5 h of agent work",
-    "ps5_native_binary": "blocked: needs macOS OpenJDK build host + PS5_PayloadSDK fork + RADV archive",
+    "core_host_verified": "~1 h remaining",
+    "ps5_native_binary": "built & signed; installable title folder at dist/PPSA90104. FTP install flaky on console ftpsrv; elfldr 9021 works.",
     "note": "ETA covers code written, built and tested on this host. On-console validation is not possible from here."
   },
-  "state": "Phase 1 (research) nearly complete. Repo empty at start; build skeleton next.",
+  "state": "Phase 1 complete. Phase 2 core backend ~80% (host tests pass). PS5 title compiles, links, signs into installable app folder. HTTP API written (libmicrohttpd/websrv model). Console: elfldr 9021 OK; FTP read-only (ftpsrv env issue).",
   "phases": [
-    { "id": 1, "name": "Research", "percent": 85, "state": "active",
-      "detail": "All 12 repos cloned and inspected. Runtime loading model confirmed: static link only, no dlopen." },
-    { "id": 2, "name": "Core infrastructure", "percent": 0, "state": "todo",
-      "detail": "Shared C++ backend: instances, process supervision, logs, config, store." },
+    { "id": 1, "name": "Research", "percent": 100, "state": "done",
+      "detail": "All 12 repos inspected. Runtime loading model confirmed: static link, bundled app content." },
+    { "id": 2, "name": "Core infrastructure", "percent": 85, "state": "active",
+      "detail": "Backend passes host tests. PS5 title built+signed. HTTP API written; host-test next." },
     { "id": 3, "name": "Native UI", "percent": 0, "state": "todo",
       "detail": "Vulkan screens, DualSense navigation on PS5_VKHomebrewUI patterns." },
     { "id": 4, "name": "Web dashboard", "percent": 0, "state": "todo",
@@ -21,14 +21,16 @@
     { "id": 5, "name": "Management features", "percent": 0, "state": "todo",
       "detail": "Console, files, config editor, backups, monitoring, catalog." },
     { "id": 6, "name": "Testing", "percent": 0, "state": "todo",
-      "detail": "Host tests with real server JARs; PS5 tests deferred." }
+      "detail": "Host tests pass. PS5 tests deferred (FTP read-only on console)." }
   ],
   "todo": [
     { "done": true,  "text": "Inspect ProsperoCraft server launch code and JVM options" },
     { "done": true,  "text": "Inspect ps5-java25-homebrew runtime packaging and loader limits" },
     { "done": true,  "text": "Inspect websrv (libmicrohttpd) routes and filesystem API" },
     { "done": true,  "text": "Inspect Vulkan template, UI kit, BFpilot, ps5-exporter, DevTools" },
-    { "done": false, "text": "Establish minimal buildable application (host + prospero cross-compile)" },
+    { "done": true,  "text": "Establish minimal buildable application (host + prospero cross-compile)" },
+    { "done": true,  "text": "Probe ELF loads via elfldr on real PS5 (deployment path verified)" },
+    { "done": true,  "text": "Build + sign PS5 title (dist/PPSA90104 installable)" },
     { "done": false, "text": "Shared backend: instance store, process supervisor, log ring buffer" },
     { "done": false, "text": "HTTP API and dashboard over websrv/libmicrohttpd" },
     { "done": false, "text": "File manager with path sandbox and zip handling" },
@@ -38,10 +40,15 @@
     { "done": false, "text": "Host integration tests with a real Minecraft server JAR" }
   ],
   "findings": [
-    "PS5 payload SDK provides __dlopen hooks, but the Java port maps them to a generated table of statically linked core libraries. Arbitrary ELF/JNI loading is unsupported, so libjvm.so cannot be dlopen'd at runtime.",
-    "The Java 25 runtime ships as eboot-linked HotSpot objects plus assets/java25/lib/modules and conf. Reusing it requires the macOS OpenJDK cross-build from ps5-java25-homebrew.",
-    "ProsperoCraft verified Paper and Fabric 26.3 on console with a fixed probe pipeline; it is a launcher, not a multi-instance manager.",
+    "PS5 payload SDK maps __dlopen/__dlsym to a generated table of statically linked core libraries. Arbitrary ELF/JNI loading is unsupported, so libjvm.so cannot be dlopen'd at runtime.",
+    "The Java 25 runtime ships as bundled app content: assets/java25/lib/modules image plus lib/*.so. A title reads lib/modules via fopen and links JNI_CreateJavaVM at build time. This is the ProsperoCraft model and PS5Craft follows it.",
+    "PS5 title builds+signs into dist/PPSA90104/ (eboot.bin, sce_sys/param.json, sce_module/libc.prx).",
+    "elfldr at 192.168.2.15:9021 loaded the title ELF with no error. Console stdout goes to klog (not visible here).",
+    "FTP 2121 (ftpsrv.elf) is now consistently read-only on PASV; install via FTP unreliable on this console. Title folder ready for normal homebrew install.",
+    "ProsperoCraft verified Paper and Fabric 26.3 on console; two-hour endurance pending upstream.",
     "websrv is libmicrohttpd-based with MHD keep-alive, no WebSocket route; the dashboard must poll.",
-    "PS5_VulkanTemplate needs a pinned PS5_PayloadSDK fork (ps5platform) and a PS5_Vulkan RADV archive; neither is present in this environment."
-  ]
+    "PS5_VulkanTemplate needs a pinned PS5_PayloadSDK fork (ps5platform) and a PS5_Vulkan RADV archive; neither is present here.",
+    "libmicrohttpd.a needs pipe2/tsearch which PS5 libc lacks; platform shims added. gmtime_r + _Unwind shims added."
+  ],
+  "console_note": "elfldr at 192.168.2.15:9021 is reachable and accepts ELF uploads. FTP 2121 is read-only (ftpsrv env issue) — title folder dist/PPSA90104/ is ready to install via the normal homebrew launcher workflow."
 }

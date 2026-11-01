@@ -1,8 +1,12 @@
 build/
 dist/
-.deps/
-.tools/
+.artifacts/
 *.o
 *.elf
 *.log
 __pycache__/
+*.pyc
+.probe_upload/
+
+tools/ps5-native-tool
+tooling/native/*.o
