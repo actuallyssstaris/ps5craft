@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PS5Craft — build status</title>
+<style>
+  :root {
+    --bg: #0a0c10; --panel: #12161d; --line: #222a35;
+    --fg: #e7edf5; --dim: #8b98ab; --accent: #4cc2ff;
+    --ok: #3ddc97; --warn: #ffc857; --bad: #ff6b6b;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--fg);
+    font: 15px/1.55 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 32px 20px 80px; }
+  header { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+  h1 { margin: 0; font-size: 26px; letter-spacing: -0.02em; }
+  .tag { color: var(--dim); font-size: 14px; }
+  .hero {
+    display: grid; grid-template-columns: 190px 1fr; gap: 28px;
+    align-items: center; margin: 26px 0 8px;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 24px;
+  }
+  .ring { position: relative; width: 170px; height: 170px; }
+  .ring svg { transform: rotate(-90deg); }
+  .ring .n {
+    position: absolute; inset: 0; display: grid; place-content: center;
+    font-size: 34px; font-weight: 650; letter-spacing: -0.03em;
+  }
+  .ring .n small { font-size: 13px; color: var(--dim); font-weight: 400; display: block; text-align: center; }
+  .state { font-size: 17px; margin: 0 0 10px; }
+  .meta { color: var(--dim); font-size: 13.5px; }
+  .pill {
+    display: inline-block; font-size: 12px; padding: 2px 9px; border-radius: 999px;
+    border: 1px solid var(--line); color: var(--dim); margin-right: 6px;
+  }
+  h2 { font-size: 14px; text-transform: uppercase; letter-spacing: .09em; color: var(--dim);
+       margin: 34px 0 12px; font-weight: 600; }
+  .phases { display: grid; gap: 10px; }
+  .phase { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
+  .phase .top { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; }
+  .phase .name { font-weight: 600; }
+  .phase .pct { font-variant-numeric: tabular-nums; color: var(--dim); font-size: 13px; }
+  .bar { height: 6px; border-radius: 3px; background: #1b222c; margin: 9px 0 8px; overflow: hidden; }
+  .bar > i { display: block; height: 100%; border-radius: 3px; background: var(--accent); transition: width .5s ease; }
+  .phase.done .bar > i { background: var(--ok); }
+  .phase.active .bar > i { background: var(--accent); }
+  .phase .detail { color: var(--dim); font-size: 13.5px; }
+  .todo { list-style: none; padding: 0; margin: 0; display: grid; gap: 7px; }
+  .todo li { display: flex; gap: 10px; align-items: flex-start; background: var(--panel);
+             border: 1px solid var(--line); border-radius: 8px; padding: 9px 13px; font-size: 14px; }
+  .todo li .box { flex: 0 0 auto; width: 16px; height: 16px; border-radius: 4px; border: 1.5px solid #33404f;
+                  margin-top: 2px; display: grid; place-content: center; font-size: 11px; color: #0a0c10; }
+  .todo li.done { color: var(--dim); }
+  .todo li.done .box { background: var(--ok); border-color: var(--ok); }
+  .todo li.done .label { text-decoration: line-through; }
+  ul.findings { margin: 0; padding-left: 20px; color: var(--dim); font-size: 14px; }
+  ul.findings li { margin-bottom: 8px; }
+  code { background: #1a212b; padding: 1px 5px; border-radius: 4px; font-size: 13px; }
+  .eta { display: grid; gap: 8px; font-size: 14px; }
+  .eta div { display: flex; gap: 10px; flex-wrap: wrap; }
+  .eta b { min-width: 190px; color: var(--fg); font-weight: 600; }
+  .eta span { color: var(--dim); }
+  footer { margin-top: 44px; color: #5f6b7c; font-size: 12.5px; }
+  @media (max-width: 640px) { .hero { grid-template-columns: 1fr; justify-items: center; text-align: center; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1 id="project">PS5Craft</h1>
+    <span class="tag" id="tagline"></span>
+  </header>
+
+  <section class="hero">
+    <div class="ring">
+      <svg width="170" height="170" viewBox="0 0 170 170">
+        <circle cx="85" cy="85" r="72" fill="none" stroke="#1b222c" stroke-width="14"/>
+        <circle id="ring" cx="85" cy="85" r="72" fill="none" stroke="#4cc2ff" stroke-width="14"
+                stroke-linecap="round" stroke-dasharray="452.4" stroke-dashoffset="452.4"/>
+      </svg>
+      <div class="n"><span id="pct">0%</span><small>complete</small></div>
+    </div>
+    <div>
+      <p class="state" id="state"></p>
+      <div class="meta" id="meta"></div>
+    </div>
+  </section>
+
+  <h2>ETA</h2>
+  <div class="eta" id="eta"></div>
+
+  <h2>Phases</h2>
+  <div class="phases" id="phases"></div>
+
+  <h2>Todo</h2>
+  <ul class="todo" id="todo"></ul>
+
+  <h2>Research findings</h2>
+  <ul class="findings" id="findings"></ul>
+
+  <footer id="footer"></footer>
+</div>
+
+<script>
+const R = 72, C = 2 * Math.PI * R;
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+async function load() {
+  const r = await fetch('status.json?t=' + Date.now());
+  const d = await r.json();
+  document.title = d.project + ' — build status';
+  document.getElementById('project').textContent = d.project;
+  document.getElementById('tagline').textContent = d.tagline;
+
+  const pct = Math.max(0, Math.min(100, d.overall_percent || 0));
+  document.getElementById('pct').textContent = pct + '%';
+  const ring = document.getElementById('ring');
+  ring.setAttribute('stroke-dasharray', C.toFixed(1));
+  ring.setAttribute('stroke-dashoffset', (C * (1 - pct / 100)).toFixed(1));
+
+  document.getElementById('state').textContent = d.state || '';
+  const total = d.todo.length, done = d.todo.filter(t => t.done).length;
+  document.getElementById('meta').innerHTML =
+    `<span class="pill">todo ${done}/${total}</span>` +
+    `<span class="pill">updated ${esc(new Date(d.updated).toLocaleString())}</span>`;
+
+  document.getElementById('eta').innerHTML = Object.entries(d.eta)
+    .map(([k, v]) => `<div><b>${esc(k.replace(/_/g, ' '))}</b><span>${esc(v)}</span></div>`).join('');
+
+  document.getElementById('phases').innerHTML = d.phases.map(p => `
+    <article class="phase ${esc(p.state)}">
+      <div class="top"><span class="name">Phase ${p.id} — ${esc(p.name)}</span>
+        <span class="pct">${p.percent}%</span></div>
+      <div class="bar"><i style="width:${p.percent}%"></i></div>
+      <div class="detail">${esc(p.detail)}</div>
+    </article>`).join('');
+
+  document.getElementById('todo').innerHTML = d.todo.map(t => `
+    <li class="${t.done ? 'done' : ''}">
+      <span class="box">${t.done ? '✓' : ''}</span>
+      <span class="label">${esc(t.text)}</span>
+    </li>`).join('');
+
+  document.getElementById('findings').innerHTML =
+    d.findings.map(f => `<li>${esc(f)}</li>`).join('');
+
+  document.getElementById('footer').textContent =
+    'Served from the development device. Percentages reflect verified work only.';
+}
+
+load();
+setInterval(load, 5000);
+</script>
+</body>
+</html>

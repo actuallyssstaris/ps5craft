@@ -1,0 +1,8 @@
+build/
+dist/
+.deps/
+.tools/
+*.o
+*.elf
+*.log
+__pycache__/
