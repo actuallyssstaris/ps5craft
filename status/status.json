@@ -1,8 +1,8 @@
 {
   "project": "PS5Craft",
   "tagline": "PS5 Minecraft Java server manager",
-  "updated": "2026-11-01T18:40:00Z",
-  "overall_percent": 84,
+  "updated": "2026-11-01T22:25:00Z",
+  "overall_percent": 86,
   "links": [
     {
       "label": "Live dashboard",
@@ -16,9 +16,9 @@
   "eta": {
     "core_host_verified": "done",
     "ps5_native_binary": "Built and signed in GitHub Actions (workflow `PS5 title`), artifact `PPSA90104`.",
-    "note": "Version 1 = web dashboard only. Remaining: console run of the signed title. Native Vulkan UI is version 2."
+    "note": "Version 1 done on host; remaining is console verification (install + run on PS5). Native Vulkan UI is version 2."
   },
-  "state": "Version 1 is feature complete on the host: lifecycle, console commands, file manager with upload, backups, catalog install with checksum verification, monitoring. Builds moved to GitHub Actions (host + signed title). Next: install the title on the console and run a Vanilla server from the dashboard. Native Vulkan UI is deferred to version 2.",
+  "state": "Version 1 feature complete: lifecycle, console commands, file manager with upload, backups, catalog install with checksum verification, measured monitoring on /api/system. Host-verified: Vanilla 1.21.11, Paper 1.21.11, Fabric 1.21.11 each installed via the API, started, answered commands, stopped cleanly. PS5 title builds clean in GitHub Actions (e2e2... artifact PPSA90104). Dashboard bind address: http://10.15.175.8:8080/ (host build), status page http://10.15.175.8:8090/.",
   "phases": [
     {
       "id": 1,
