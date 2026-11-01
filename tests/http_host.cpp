@@ -75,7 +75,7 @@ static void handle(int cfd, Backend &backend) {
         close(cfd);
         return;
     }
-    if (method == "GET" && path.compare(0, 15, "/api/instances/") == 0) {
+    if (path.compare(0, 15, "/api/instances/") == 0) {
         std::string rest = path.substr(15);
         auto slash = rest.find('/');
         std::string id = rest.substr(0, slash);
