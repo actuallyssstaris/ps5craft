@@ -74,18 +74,45 @@ void Json::dump_to(std::string &out) const {
     case Type::Null: out += "null"; break;
     case Type::Bool: out += bool_ ? "true" : "false"; break;
     case Type::Number: {
-        if (std::isfinite(number_) && number_ == std::floor(number_) &&
-            std::fabs(number_) < 9.0e15) {
-            char buffer[32];
-            std::snprintf(buffer, sizeof buffer, "%lld", static_cast<long long>(number_));
-            out += buffer;
-        } else if (std::isfinite(number_)) {
-            char buffer[32];
-            std::snprintf(buffer, sizeof buffer, "%.17g", number_);
-            out += buffer;
-        } else {
+        if (!std::isfinite(number_)) {
             out += "null";
+            break;
         }
+        char buffer[48];
+        if (number_ == std::floor(number_) && std::fabs(number_) < 9.0e15) {
+            std::snprintf(buffer, sizeof buffer, "%lld",
+                          static_cast<long long>(number_));
+            out += buffer;
+            break;
+        }
+        /* Non-integer values are formatted with integer math: the PS5 libc
+           crashes inside its floating-point printf path. Six decimals is
+           enough for every value the API emits (percentages, ratios). */
+        const bool negative = number_ < 0;
+        double magnitude = negative ? -number_ : number_;
+        if (magnitude >= 9.0e15) {
+            std::snprintf(buffer, sizeof buffer, "%lld",
+                          static_cast<long long>(magnitude));
+            if (negative) out += '-';
+            out += buffer;
+            break;
+        }
+        const long long scale = 1000000;
+        long long scaled = static_cast<long long>(magnitude * scale + 0.5);
+        long long whole = scaled / scale;
+        long long frac = scaled % scale;
+        if (frac == 0) {
+            std::snprintf(buffer, sizeof buffer, "%lld", whole);
+        } else {
+            char digits[8];
+            std::snprintf(digits, sizeof digits, "%06lld", frac);
+            std::size_t len = 6;
+            while (len > 0 && digits[len - 1] == '0') --len;
+            digits[len] = '\0';
+            std::snprintf(buffer, sizeof buffer, "%lld.%s", whole, digits);
+        }
+        if (negative) out += '-';
+        out += buffer;
         break;
     }
     case Type::String: out += '"'; out += json_escape(string_); out += '"'; break;

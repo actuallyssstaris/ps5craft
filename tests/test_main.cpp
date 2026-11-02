@@ -47,6 +47,7 @@ static void test_json() {
     std::string out = j.dump();
     CHECK(out.find("\"name\":\"test\"") != std::string::npos);
     CHECK(out.find("\"count\":42") != std::string::npos);
+    CHECK(out.find("\"ratio\":3.14") != std::string::npos);
 
     Json parsed;
     CHECK(Json::parse(out, parsed));

@@ -29,6 +29,7 @@ FILES = [
     (TITLE_DIR + "/sce_sys", "icon0.png", "dist/PPSA90104/sce_sys/icon0.png"),
     (TITLE_DIR + "/sce_module", "libc.prx", "dist/PPSA90104/sce_module/libc.prx"),
     (TITLE_DIR + "/assets", "ca-bundle.crt", "dist/PPSA90104/assets/ca-bundle.crt"),
+    (TITLE_DIR + "/assets/web", "index.html", "dist/PPSA90104/assets/web/index.html"),
 ]
 
 
