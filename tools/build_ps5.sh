@@ -98,9 +98,13 @@ echo "==> [ps5] assembling app folder"
 rm -rf -- "$dist"
 mkdir -p "$dist/sce_sys" "$dist/sce_module" "$dist/assets"
 cp "$root/sce_sys/param.json" "$dist/sce_sys/param.json"
+cp "$root/sce_sys/icon0.png" "$dist/sce_sys/icon0.png"
 cp "$build/eboot.bin" "$dist/eboot.bin"
 cp "$root/runtime/libc.prx" "$dist/sce_module/libc.prx"
 [[ -d $root/assets ]] && cp -a "$root/assets/." "$dist/assets/"
+# The dashboard is a single self-contained page; the title serves it from
+# /app0/assets/web.
+cp -a "$root/web" "$dist/assets/web"
 
 echo "Build complete."
 echo "App folder: $dist"

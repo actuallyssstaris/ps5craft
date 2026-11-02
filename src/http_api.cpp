@@ -169,13 +169,21 @@ extern "C" enum MHD_Result api_handler(void *cls, struct MHD_Connection *conn,
     std::string path = url ? url : "/";
     auto parts = path_parts(path);
 
-    /* Dashboard: serve web/index.html for "/" and "/index.html". */
+    /* Dashboard: serve index.html for "/" and "/index.html". The title has no
+       fixed working directory, so try the app folder first, then the
+       development layout. */
     if (std::strcmp(method, "GET") == 0 &&
         (path == "/" || path == "/index.html")) {
-        const char *root = std::getenv("PS5CRAFT_WEB_ROOT");
-        std::string file = std::string(root ? root : "web") + "/index.html";
         std::string html;
-        if (ps5craft::fs_read_file(file, html)) {
+        bool found = false;
+        if (const char *root = std::getenv("PS5CRAFT_WEB_ROOT")) {
+            found = ps5craft::fs_read_file(std::string(root) + "/index.html", html);
+        }
+        for (const char *dir : {"/app0/assets/web", "web"}) {
+            if (found) break;
+            found = ps5craft::fs_read_file(std::string(dir) + "/index.html", html);
+        }
+        if (found) {
             struct MHD_Response *resp =
                 MHD_create_response_from_buffer(html.size(), (void *)html.data(),
                                                 MHD_RESPMEM_MUST_COPY);

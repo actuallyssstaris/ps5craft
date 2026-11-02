@@ -189,8 +189,6 @@ MonitorSnapshot monitor_sample(CpuSample *prev_cpu) {
             out.proc_cpu_present = true;
         }
         *prev_cpu = cur;
-    } else {
-        *prev_cpu = cur;
     }
     return out;
 }
