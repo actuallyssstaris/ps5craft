@@ -44,6 +44,9 @@ jobs:
       - name: Fetch payload SDK and zlib
         run: gui/tools/build-kit.sh deps
 
+      - name: Fetch pinned pacbrew ports
+        run: gui/tools/build-kit.sh pacbrew
+
       - name: Set title identity
         env:
           TITLE_ID: PPSA90104
@@ -51,6 +54,8 @@ jobs:
         run: gui/tools/build-kit.sh init
 
       - name: Build and sign the title
+        env:
+          PACBREW_PACKAGES: libcurl libmicrohttpd
         run: gui/tools/build-kit.sh app
 
       - name: Record artifact checksum

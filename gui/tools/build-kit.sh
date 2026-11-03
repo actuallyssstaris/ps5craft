@@ -29,7 +29,14 @@ fi
 prefix=$(bash "$gui/tools/fetch-kit.sh" | tail -1)
 export PS5_OPENGL_PREFIX="$prefix"
 
-bash "$gui/tools/prepare-kit.sh"
+case "$target" in
+app | deploy) mode=app ;;
+host-snapshots) mode=preview ;;
+*) mode= ;;
+esac
+if [[ -n $mode ]]; then
+    bash "$gui/tools/prepare-kit.sh" "$mode"
+fi
 
 cd "$kit"
 exec make "$target" "$@"
