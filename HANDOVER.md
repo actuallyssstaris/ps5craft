@@ -1,39 +1,103 @@
 # PS5Craft — development handover
 
-## Where things stand (2026-11-01)
+## Where things stand (2026-11-03)
 
 Repo: `https://github.com/actuallyssstaris/ps5craft` (public, branch `main`)
 Title ID: `PPSA90104`
-Overall: **~86%**. Core backend, real process supervision, backups, console/logs, persistence, the dashboard, the server catalog API and the SmartTube-style catalog UI (software/version picker, install with progress, hash verification), measured monitoring on `GET /api/system` — all host-tested. PS5 title builds + signs in GitHub Actions into `dist/PPSA90104/`.
+Overall: **~90%**. Core backend, real process supervision, backups, console/logs, persistence, the dashboard, the server catalog API and the catalog UI, measured monitoring on `GET /api/system` — host-tested and mostly console-verified. PS5 title builds + signs in GitHub Actions into `dist/PPSA90104/`.
 
-Version 1 (web dashboard only) is feature complete. Remaining: console verification — install + run on the PS5.
+Version 1 (web dashboard only) is feature complete. The title is deployed and
+launches on the console. Remaining: run the full install/start/connect/stop
+flow on the console with the current build.
 
 Live pages from the development device:
 - Dashboard: `http://10.15.175.8:8080/` (host build of the same HTTP API)
 - Build status: `http://10.15.175.8:8090/`
 
-Title artifact (latest successful build):
-- `dist/PPSA90104/` — `eboot.bin` sha256 `c37635f72204efd261ac43bd906760605699818cf224bc3ff406060dab2b22e0`, `sce_sys/param.json` (title ID `PPSA90104`), `sce_module/libc.prx`, `assets/ca-bundle.crt`
+Title artifact (latest successful build, CI run `41649007226`):
+- `dist/PPSA90104/` — `eboot.bin` sha256 `4dc12156b0b3f30d41430b801de5f4d853067ff89fbc04c82ec5232bd65b3682`, `sce_sys/param.json` (title ID `PPSA90104`), `sce_module/libc.prx`, `assets/ca-bundle.crt`, `assets/web/index.html`
+
+### Console status
+
+- Deployed at `/data/homebrew/PPSA90104/`, registered by ShadowMountPlus,
+  appears in the XMB as **PS5Craft** and launches.
+- `GET /` returns the 68,018-byte dashboard; `GET /api/status`,
+  `/api/instances` and `/api/system` return 200. Repeated polling of
+  `/api/system` no longer crashes.
+- Upload path: `ps5-web-file-manager` on port 8889 (its upload API is in
+  `tools/upload_wfm.py`). Files must be `chmod 0777` recursively or launch
+  fails with `CE-107750-0`.
+- Remote Play helper daemon: `127.0.0.1:9595` (`/tmp/restart_daemon.sh`).
+  Launch: press and hold PS ~2.5 s, then Cross; wait for port 8080.
+
+### Crash fixed (2026-11-03)
+
+`GET /api/system` killed the title. The crash report showed `MHD-single`
+with fault address `0x10002746a6`; backtrace frame `0x40b373` mapped to
+`fs_disk_space` calling `statvfs`. That call resolves to an unmapped address
+in this title's runtime, so the dashboard lost the API on its first poll.
+
+Fixes, all in the current artifact:
+
+- `fs_disk_space` returns false on PS5. The dashboard already renders a
+  missing `disk` as "capacity unavailable". Capacity is not guessed.
+- `/proc` reads use `open`/`read` instead of `fopen`/`fread`.
+- Local IPv4 comes from a UDP route lookup (`connect` + `getsockname`),
+  not `getifaddrs`/`getaddrinfo`.
+- Process CPU comes from `getrusage`, not `sysconf` + `/proc/self/stat`.
+  The first poll only seeds the sample; later polls report a percentage.
+
+### Data root
+
+The title picks its data root at startup with a write-and-read-back probe:
+
+1. `PS5CRAFT_DATA_ROOT` (if set)
+2. `/download0/PS5Craft`
+3. `/data/homebrew/PPSA90104/data`
+4. `/app_temp0/ps5craft`
+
+The chosen root is reported as `data_root` in `GET /api/system`. On this
+console `/download0` does not exist, which is why `instances.json` never
+persisted before the probe existed. If none of the candidates is writable,
+the first is used so the failure is visible instead of hidden.
+
+The CA bundle ships at `/app0/assets/ca-bundle.crt`; on first launch it is
+copied to `<data root>/ca-bundle.crt` and selected explicitly, so catalog
+HTTPS does not depend on an environment variable being set by the loader.
 
 ## Console verification runbook
 
-This has not been executed yet — the PS5 console is not reachable from this host (elfldr `192.168.2.15:9021` and FTP `2121` do not answer, Remote Play session not live). Run these steps from a machine with console access:
+Steps 1–4 are done on this console. Steps 5–7 remain and need the console
+again; the last recorded console run was 2026-11-03 with the crash fix.
 
-1. **Copy the title.** Transfer the whole `dist/PPSA90104/` folder to the console. Console FTP is read-only, so use the homebrew launcher / elfldr upload, not FTP. Target: `/data/homebrew/PPSA90104/` (the rule: every title file must live under `/data/homebrew/<TITLEID>/` or `/data/PlayKit/`).
+1. **Copy the title.** Transfer the whole `dist/PPSA90104/` folder to the
+   console. WFM on port 8889 works (`tools/upload_wfm.py`); FTP `2121` is
+   read-only. Target: `/data/homebrew/PPSA90104/` (the rule: every title file
+   must live under `/data/homebrew/<TITLEID>/` or `/data/PlayKit/`).
+2. **Fix permissions.** `chmod 0777` recursively, or launch fails with
+   `CE-107750-0`.
+3. **Launch the title.** Long-press PS ~2.5 s, press Cross, then wait for
+   port 8080. `main()` prints the selected data root on stdout.
+4. **Verify from another machine.** `http://<console-ip>:8080/` should serve
+   the dashboard. `GET /api/system` must return `data_root` and must survive
+   repeated polling.
+5. **Install a server.** Catalog → Vanilla → 1.21.11 (or any listed release)
+   → Install. Watch progress. Hash verified before the JAR is moved into
+   place. Fabric/Paper also listed; only Vanilla, Fabric, Paper are
+   installable.
+6. **Start the server.** Click Start. Watch the log until `Done (<N>s)!`.
+   Connect a Minecraft client on LAN to `<console-ip>:25565`. Run `list` via
+   the dashboard command box; it should answer.
+7. **Stop cleanly.** Click Stop. Instance exits 0, TCP 25565 closes. Take a
+   live world backup → verify it downloads → restore → verify world files.
+8. **Restart persistence.** Kill and relaunch the title. The instance list
+   must be the same (no recreated default), and `data_root` must be the same
+   path.
 
-2. **Place the CA bundle.** Copy `assets/ca-bundle.crt` to `<data root>/ca-bundle.crt` (wherever `PS5CRAFT_DATA_ROOT` points, e.g. `/download0/PS5Craft/`) or set `PS5CRAFT_CA_BUNDLE`. Without it, catalog HTTPS downloads fail — `main()` prints a clear notice at startup.
-
-3. **Launch the title.** Start `PPSA90104` from the homebrew launcher. It runs the shared backend + HTTP API on port 8080 (default). `main()` prints the data root and the CA-bundle notice to stderr.
-
-4. **Verify from another machine.** Open `http://<console-ip>:8080/`. You should see the dashboard with no instances yet.
-
-5. **Install a server.** Catalog → Vanilla → 26.3 (or any listed release) → Install. Watch progress. Hash verified before the JAR is moved into place. Fabric/Paper also listed; only Vanilla, Fabric, Paper are installable.
-
-6. **Start the server.** Click Start. Watch the log until `Done (<N>s)!`. Open the Minecraft client on LAN and connect to `<console-ip>:25565`. Run `list` via the dashboard command box; it should answer.
-
-7. **Stop cleanly.** Click Stop. Instance exits 0, TCP 25565 closes. Run a live world backup → verify it downloads → restore → verify world files present.
-
-If any step fails, check `stderr` from step 3 for the CA-bundle notice and libcurl errors; `/api/system` reports measured memory/CPU/IPs only (never simulated).
+If any step fails, check the title log for the CA-bundle notice and libcurl
+errors; `/api/system` reports measured memory/CPU/IPs only (never simulated).
+PS5 memory and disk capacity are reported as unavailable until a safe source
+is proven.
 
 ## What works (host-verified)
 
@@ -71,7 +135,8 @@ If any step fails, check `stderr` from step 3 for the CA-bundle notice and libcu
 - `build/host/ps5craft_http` — old socket harness (superseded by `ps5craft_host`)
 - `build/host/ps5craft_host` — real `main.cpp` + `http_api.cpp` on libmicrohttpd
 
-**PS5 title**: compiles, links, signs into `dist/PPSA90104/`. elfldr at `192.168.2.15:9021` loads ELF payloads.
+**PS5 title**: compiles, links, signs into `dist/PPSA90104/`. Deployed at
+`/data/homebrew/PPSA90104/`; launched through ShadowMountPlus from the XMB.
 
 ## Real Minecraft run (host, 2026-11-01)
 
@@ -136,13 +201,14 @@ PS5 notes:
 - `libcurl.a` from the pacbrew sysroot links statically; the title links
   `libcurl`, `libpsl`, `libssh2`, `libzstd`, `libiconv`, `libssl`,
   `libcrypto`, `libz`.
-- The console has no system CA store. Put a Mozilla bundle at
-  `<data root>/ca-bundle.crt` or set `PS5CRAFT_CA_BUNDLE`.
+- The console has no system CA store. The title copies
+  `/app0/assets/ca-bundle.crt` into the chosen data root on first launch;
+  `PS5CRAFT_CA_BUNDLE` overrides it.
 - Paper Fill requires a descriptive User-Agent with contact information;
   `http_client` sends `PS5Craft/0.1 (+https://github.com/actuallyssstaris/ps5craft)`.
 
-Not done yet: the dashboard still has no catalog picker. The API is
-complete and tested; the UI is the next piece.
+Catalog UI: the dashboard has the software/version picker and install
+progress dialog. Host-verified; console run still pending.
 
 ## Run the host build
 
@@ -208,7 +274,8 @@ backend changes for it.
 
 - RADV / ps5platform SDK deps missing → Vulkan native title can't build fully.
 - macOS OpenJDK build host missing → can't rebuild ps5-java25-homebrew runtime here.
-- Console FTP read-only → install the title through the homebrew launcher, not FTP.
+- Console FTP read-only → install the title through WFM on port 8889
+  (`tools/upload_wfm.py`), not FTP.
 
 ## Tests
 

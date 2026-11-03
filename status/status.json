@@ -1,8 +1,8 @@
 {
   "project": "PS5Craft",
   "tagline": "PS5 Minecraft Java server manager",
-  "updated": "2026-11-01T23:10:00Z",
-  "overall_percent": 88,
+  "updated": "2026-11-03T09:10:00Z",
+  "overall_percent": 90,
   "links": [
     {
       "label": "Live dashboard",
@@ -16,10 +16,10 @@
   "eta": {
     "core_host_verified": "done",
     "ps5_native_binary": "Built and signed in GitHub Actions (workflow `PS5 title`), artifact `PPSA90104`.",
-    "note": "Title ready for console deploy. deploy.sh documents manual steps. Next: console verification, then native Vulkan UI (v2).",
-    "console_access": "FTP 2121 open but read-only; elfldr 9021 down; manual copy needed"
+    "note": "Title deployed and launching on the console. Crash on /api/system fixed. Remaining: install/start/connect/stop flow on console, then native Vulkan UI (v2).",
+    "console_access": "Remote Play via helper daemon on 127.0.0.1:9595; WFM on 8889 for uploads"
   },
-  "state": "Version 1 feature complete and host-verified. PS5 title built + signed in GitHub Actions (dist/PPSA90104/, eboot.bin sha256 c37635f7...). deploy.sh added for console installation. Console FTP 2121 is open but read-only (ftpsrv.elf v0.21.1); elfldr 9021 is down. Manual copy of dist/PPSA90104/ to /data/homebrew/PPSA90104/ required via homebrew launcher.",
+  "state": "Version 1 feature complete. Title deployed at /data/homebrew/PPSA90104/, launches from the XMB, dashboard and API respond on port 8080. /api/system crash (statvfs) fixed; data root now chosen by write probe and reported in /api/system. eboot sha256 4dc12156b0b3f30d41430b801de5f4d853067ff89fbc04c82ec5232bd65b3682 (CI run 41649007226). Next: full install/start/connect/stop run on console.",
   "phases": [
     {
       "id": 1,
@@ -58,9 +58,9 @@
     {
       "id": 6,
       "name": "Testing",
-      "percent": 92,
+      "percent": 95,
       "state": "active",
-      "detail": "Unit tests pass (incl. SHA vectors, monitoring compiles). Vanilla/Paper/Fabric each installed through the API and ran to Done on host. Pending: PS5 console verification."
+      "detail": "Unit tests pass (incl. SHA vectors, monitoring). Vanilla/Paper/Fabric each installed through the API and ran to Done on host. Console: dashboard + API verified, crash fixed, data-root persistence pending relaunch."
     }
   ],
   "todo": [
@@ -70,7 +70,7 @@
     },
     {
       "done": false,
-      "text": "PS5 console run: install dist/PPSA90104 under /data/homebrew/, start Vanilla 26.3 on bundled Java 25 (blocked: console unreachable)"
+      "text": "PS5 console run: relaunch, verify instances.json persists, install Vanilla 1.21.11, start to Done, connect 25565, stop"
     },
     {
       "done": true,
@@ -122,7 +122,7 @@
     },
     {
       "done": true,
-      "text": "Monitoring: measured /proc + getifaddrs values on /api/system"
+      "text": "Monitoring: measured values on /api/system (PS5: getrusage CPU, UDP route IP; disk capacity unavailable)"
     },
     {
       "done": true,
@@ -148,7 +148,8 @@
   "findings": [
     "Only Vanilla, Fabric and Paper are offered; other server types stay disabled until tested on the console.",
     "One JVM per process: parallel instances need separate processes.",
-    "Resource bars show measured values only: per-instance directory size and volume capacity."
+    "Resource bars show measured values only: per-instance directory size and volume capacity.",
+    "PS5 disk capacity and system memory are reported as unavailable until a safe source is proven; no value is guessed."
   ],
-  "console_note": "elfldr at 192.168.2.15:9021 accepts ELF uploads. FTP 2121 read-only."
+  "console_note": "WFM on 8889 (tools/upload_wfm.py), ShadowMountPlus 10101, Remote Play daemon 127.0.0.1:9595. chmod 0777 -R required after upload."
 }
