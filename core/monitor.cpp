@@ -7,6 +7,7 @@
 #include <cstdio>
 #include <cstring>
 #include <ifaddrs.h>
+#include <netdb.h>
 #include <sys/time.h>
 #include <time.h>
 #include <unistd.h>
@@ -149,11 +150,12 @@ double cpu_percent(const CpuSample &a, const CpuSample &b) {
 
 std::vector<std::string> local_ips() {
     std::vector<std::string> out;
+#if !defined(__PROSPERO__)
     struct ifaddrs *addrs = nullptr;
     if (getifaddrs(&addrs) != 0) return out;
     for (struct ifaddrs *a = addrs; a; a = a->ifa_next) {
         if (!a->ifa_addr) continue;
-        char host[INET6_ADDRSTRLEN];
+        char text[INET6_ADDRSTRLEN];
         const void *addr = nullptr;
         if (a->ifa_addr->sa_family == AF_INET)
             addr = &reinterpret_cast<struct sockaddr_in *>(a->ifa_addr)->sin_addr;
@@ -161,15 +163,49 @@ std::vector<std::string> local_ips() {
             addr = &reinterpret_cast<struct sockaddr_in6 *>(a->ifa_addr)->sin6_addr;
         else
             continue;
-        if (inet_ntop(a->ifa_addr->sa_family, addr, host, sizeof host)) {
-            std::string h = host;
-            /* Loopback is not reachable from another machine; skip it. */
-            if (h == "127.0.0.1" || h == "::1") continue;
-            out.push_back(h);
-        }
+        if (!inet_ntop(a->ifa_addr->sa_family, addr, text, sizeof text)) continue;
+        std::string h = text;
+        /* Loopback is not reachable from another machine; skip it. */
+        if (h == "127.0.0.1" || h == "::1") continue;
+        out.push_back(h);
     }
     freeifaddrs(addrs);
     return out;
+#else
+    /* getifaddrs() is only a weak stub on PS5 and faults when called, so the
+       addresses come from resolving this console's own host name instead. */
+    char hostname[256];
+    if (gethostname(hostname, sizeof hostname) != 0) return out;
+    hostname[sizeof hostname - 1] = '\0';
+
+    struct addrinfo hints {};
+    hints.ai_family = AF_UNSPEC;
+    hints.ai_socktype = SOCK_STREAM;
+    struct addrinfo *res = nullptr;
+    if (getaddrinfo(hostname, nullptr, &hints, &res) != 0) return out;
+
+    for (struct addrinfo *a = res; a; a = a->ai_next) {
+        if (!a->ai_addr) continue;
+        char text[INET6_ADDRSTRLEN];
+        const void *addr = nullptr;
+        if (a->ai_family == AF_INET)
+            addr = &reinterpret_cast<struct sockaddr_in *>(a->ai_addr)->sin_addr;
+        else if (a->ai_family == AF_INET6)
+            addr = &reinterpret_cast<struct sockaddr_in6 *>(a->ai_addr)->sin6_addr;
+        else
+            continue;
+        if (!inet_ntop(a->ai_family, addr, text, sizeof text)) continue;
+        std::string h = text;
+        /* Loopback is not reachable from another machine; skip it. */
+        if (h == "127.0.0.1" || h == "::1") continue;
+        bool duplicate = false;
+        for (const auto &seen : out)
+            if (seen == h) duplicate = true;
+        if (!duplicate) out.push_back(h);
+    }
+    freeaddrinfo(res);
+    return out;
+#endif
 }
 
 MonitorSnapshot monitor_sample(CpuSample *prev_cpu) {
