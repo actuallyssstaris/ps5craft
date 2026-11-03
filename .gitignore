@@ -11,3 +11,7 @@ __pycache__/
 tools/ps5-native-tool
 tooling/native/*.o
 .deps/
+
+# Native UI workspace
+gui/kit/
+gui/.deps/
