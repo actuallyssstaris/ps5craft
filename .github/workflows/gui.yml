@@ -1,0 +1,92 @@
+name: Native UI
+
+# Builds the native console UI: the pinned ps5-homebrew-ui kit plus the
+# PS5Craft screens. The kit's upstream repositories were deleted, so both the
+# kit checkout and the OpenGL SDK come from byte-identical mirrors pinned in
+# gui/tools/fetch-kit.sh.
+#
+# The host job renders the kit's screens through Mesa, so layout changes can
+# be reviewed without a console. The title job produces the installable
+# PPSA90104 folder.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'gui/**'
+      - 'core/**'
+      - 'platform/**'
+      - 'docs/GUI_RESEARCH.md'
+      - '.github/workflows/gui.yml'
+  pull_request:
+    paths:
+      - 'gui/**'
+      - 'core/**'
+      - 'platform/**'
+  workflow_dispatch:
+
+jobs:
+  title:
+    name: Build native title PPSA90104
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            clang-18 lld-18 ninja-build ccache unzip wget
+
+      - name: Fetch pinned kit and OpenGL SDK
+        run: gui/tools/fetch-kit.sh
+
+      - name: Fetch payload SDK and zlib
+        run: gui/tools/build-kit.sh deps
+
+      - name: Set title identity
+        env:
+          TITLE_ID: PPSA90104
+          APP_NAME: PS5Craft
+        run: gui/tools/build-kit.sh init
+
+      - name: Build and sign the title
+        run: gui/tools/build-kit.sh app
+
+      - name: Record artifact checksum
+        run: |
+          cd gui/kit/dist
+          find . -maxdepth 2 -type f -name eboot.bin -exec sha256sum {} \;
+
+      - name: Upload title folder
+        uses: actions/upload-artifact@v4
+        with:
+          name: ps5craft-kit-PPSA90104
+          path: gui/kit/dist/PPSA90104
+          if-no-files-found: error
+
+  preview:
+    name: Host snapshots
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install host renderer dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            clang-18 ninja-build ccache unzip wget \
+            libgl-dev libegl-dev libegl-mesa0 libgl1-mesa-dri
+
+      - name: Fetch pinned kit and OpenGL SDK
+        run: gui/tools/fetch-kit.sh
+
+      - name: Render every design
+        run: gui/tools/build-kit.sh host-snapshots
+
+      - name: Upload snapshots
+        uses: actions/upload-artifact@v4
+        with:
+          name: ps5craft-ui-snapshots
+          path: gui/kit/build/snapshots
+          if-no-files-found: error

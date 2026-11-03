@@ -41,7 +41,7 @@ if [[ ! -f $prefix/manifest.sha256 ]]; then
     if [[ ! -f $archive ]] ||
         ! sha256sum --check --status <<<"$sdk_sha256  $archive"; then
         echo "==> downloading ps5-opengl SDK $sdk_version" >&2
-        curl -fL --retry 3 -o "$archive.part" "$sdk_url"
+        curl -fL --retry 3 -C - -o "$archive.part" "$sdk_url"
         mv -- "$archive.part" "$archive"
     fi
     sha256sum --check --strict <<<"$sdk_sha256  $archive" >&2
