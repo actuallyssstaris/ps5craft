@@ -2,27 +2,40 @@
 #include "monitor.hpp"
 
 #include <arpa/inet.h>
-#include <netinet/in.h>
-#include <sys/socket.h>
-#include <cstdio>
-#include <cstring>
+#include <fcntl.h>
 #include <ifaddrs.h>
-#include <netdb.h>
+#include <netinet/in.h>
+#include <sys/resource.h>
+#include <sys/socket.h>
 #include <sys/time.h>
 #include <time.h>
 #include <unistd.h>
+#include <cerrno>
+#include <cstdio>
+#include <cstring>
 
 namespace ps5craft {
 namespace {
 
 bool read_file(const std::string &path, std::string &out) {
-    std::FILE *f = std::fopen(path.c_str(), "r");
-    if (!f) return false;
+    /* Raw descriptor I/O: the title's runtime provides open/read, while the
+       stdio wrappers are not part of its compatibility contract. */
+    const int fd = open(path.c_str(), O_RDONLY);
+    if (fd < 0) return false;
+    out.clear();
     char buf[4096];
-    std::size_t n;
-    while ((n = std::fread(buf, 1, sizeof buf, f)) > 0)
-        out.append(buf, n);
-    std::fclose(f);
+    for (;;) {
+        const ssize_t n = read(fd, buf, sizeof buf);
+        if (n < 0) {
+            if (errno == EINTR) continue;
+            close(fd);
+            return false;
+        }
+        if (n == 0) break;
+        out.append(buf, static_cast<std::size_t>(n));
+        if (out.size() > (1u << 20)) break;
+    }
+    close(fd);
     return true;
 }
 
@@ -99,6 +112,16 @@ SysMem read_sys_mem() {
 
 CpuSample cpu_sample() {
     CpuSample s;
+#if defined(__PROSPERO__)
+    /* getrusage is part of the runtime's import contract and reports CPU time
+       in microseconds, so no sysconf tick-rate lookup is needed. */
+    struct rusage usage {};
+    if (getrusage(RUSAGE_SELF, &usage) != 0) return s;
+    s.cpu_us = static_cast<std::uint64_t>(usage.ru_utime.tv_sec) * 1000000u +
+               static_cast<std::uint64_t>(usage.ru_utime.tv_usec) +
+               static_cast<std::uint64_t>(usage.ru_stime.tv_sec) * 1000000u +
+               static_cast<std::uint64_t>(usage.ru_stime.tv_usec);
+#else
     std::string text;
     if (!read_file("/proc/self/stat", text)) return s;
     /* Fields after the parenthesised comm: state is field 3, utime 14,
@@ -123,14 +146,26 @@ CpuSample cpu_sample() {
         }
         ++field;
     }
+#endif
     struct timespec ts;
-    if (clock_gettime(CLOCK_MONOTONIC, &ts) == 0)
-        s.uptime_ms = static_cast<std::uint64_t>(ts.tv_sec) * 1000 +
-                      static_cast<std::uint64_t>(ts.tv_nsec) / 1000000;
+    if (clock_gettime(CLOCK_MONOTONIC, &ts) != 0) return s;
+    s.uptime_ms = static_cast<std::uint64_t>(ts.tv_sec) * 1000 +
+                  static_cast<std::uint64_t>(ts.tv_nsec) / 1000000;
+    s.valid = true;
     return s;
 }
 
 double cpu_percent(const CpuSample &a, const CpuSample &b) {
+#if defined(__PROSPERO__)
+    const std::int64_t dcpu =
+        static_cast<std::int64_t>(b.cpu_us - a.cpu_us);
+    const std::int64_t dwall =
+        static_cast<std::int64_t>(b.uptime_ms - a.uptime_ms);
+    if (dcpu < 0 || dwall <= 0) return -1;
+    const double pct = (static_cast<double>(dcpu) / 1000.0) /
+                       static_cast<double>(dwall) * 100.0;
+    return pct < 0 ? 0 : (pct > 100.0 ? 100.0 : pct);
+#else
     const long ncpu = sysconf(_SC_NPROCESSORS_ONLN);
     const long clk = sysconf(_SC_CLK_TCK);
     if (ncpu < 1 || clk <= 0) return -1;
@@ -146,6 +181,7 @@ double cpu_percent(const CpuSample &a, const CpuSample &b) {
     if (pct < 0) return 0;
     const double cap = 100.0 * static_cast<double>(ncpu);
     return pct > cap ? cap : pct;
+#endif
 }
 
 std::vector<std::string> local_ips() {
@@ -172,38 +208,34 @@ std::vector<std::string> local_ips() {
     freeifaddrs(addrs);
     return out;
 #else
-    /* getifaddrs() is only a weak stub on PS5 and faults when called, so the
-       addresses come from resolving this console's own host name instead. */
-    char hostname[256];
-    if (gethostname(hostname, sizeof hostname) != 0) return out;
-    hostname[sizeof hostname - 1] = '\0';
-
-    struct addrinfo hints {};
-    hints.ai_family = AF_UNSPEC;
-    hints.ai_socktype = SOCK_STREAM;
-    struct addrinfo *res = nullptr;
-    if (getaddrinfo(hostname, nullptr, &hints, &res) != 0) return out;
-
-    for (struct addrinfo *a = res; a; a = a->ai_next) {
-        if (!a->ai_addr) continue;
-        char text[INET6_ADDRSTRLEN];
-        const void *addr = nullptr;
-        if (a->ai_family == AF_INET)
-            addr = &reinterpret_cast<struct sockaddr_in *>(a->ai_addr)->sin_addr;
-        else if (a->ai_family == AF_INET6)
-            addr = &reinterpret_cast<struct sockaddr_in6 *>(a->ai_addr)->sin6_addr;
-        else
-            continue;
-        if (!inet_ntop(a->ai_family, addr, text, sizeof text)) continue;
-        std::string h = text;
-        /* Loopback is not reachable from another machine; skip it. */
-        if (h == "127.0.0.1" || h == "::1") continue;
-        bool duplicate = false;
-        for (const auto &seen : out)
-            if (seen == h) duplicate = true;
-        if (!duplicate) out.push_back(h);
+    /* getifaddrs() and getaddrinfo() are not usable in the title's runtime.
+       A UDP socket connected to a public address selects the console's
+       primary IPv4 route; no packet is sent by connect(). */
+    const int fd = socket(AF_INET, SOCK_DGRAM, 0);
+    if (fd < 0) return out;
+    struct sockaddr_in target {};
+    target.sin_family = AF_INET;
+    target.sin_port = htons(53);
+    target.sin_addr.s_addr = htonl(0x08080808u); /* 8.8.8.8 */
+    if (connect(fd, reinterpret_cast<struct sockaddr *>(&target),
+                sizeof target) == 0) {
+        struct sockaddr_in local {};
+        socklen_t len = sizeof local;
+        if (getsockname(fd, reinterpret_cast<struct sockaddr *>(&local),
+                        &len) == 0 &&
+            local.sin_family == AF_INET) {
+            const unsigned char *b =
+                reinterpret_cast<const unsigned char *>(&local.sin_addr);
+            char text[16];
+            std::snprintf(text, sizeof text, "%u.%u.%u.%u",
+                          static_cast<unsigned>(b[0]),
+                          static_cast<unsigned>(b[1]),
+                          static_cast<unsigned>(b[2]),
+                          static_cast<unsigned>(b[3]));
+            out.push_back(text);
+        }
     }
-    freeaddrinfo(res);
+    close(fd);
     return out;
 #endif
 }
@@ -219,10 +251,13 @@ MonitorSnapshot monitor_sample(CpuSample *prev_cpu) {
 
     CpuSample cur = cpu_sample();
     if (prev_cpu) {
-        double pct = cpu_percent(*prev_cpu, cur);
-        if (pct >= 0) {
-            out.proc_cpu_percent = pct;
-            out.proc_cpu_present = true;
+        /* A percentage needs two valid samples; the first call only seeds. */
+        if (prev_cpu->valid && cur.valid) {
+            double pct = cpu_percent(*prev_cpu, cur);
+            if (pct >= 0) {
+                out.proc_cpu_percent = pct;
+                out.proc_cpu_present = true;
+            }
         }
         *prev_cpu = cur;
     }

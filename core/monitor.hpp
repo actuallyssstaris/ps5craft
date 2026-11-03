@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
-/* Read-only measured monitoring. Every field comes from /proc or getifaddrs,
-   or is absent. Nothing simulated. */
+/* Read-only measured monitoring. Values come from /proc, getifaddrs, or
+   getrusage, and are absent when the platform does not provide them. Nothing
+   simulated. */
 #pragma once
 
 #include <cstdint>
@@ -25,6 +26,8 @@ struct CpuSample {
     std::uint64_t utime_ticks = 0;
     std::uint64_t stime_ticks = 0;
     std::uint64_t uptime_ms = 0;
+    std::uint64_t cpu_us = 0; /* PS5: getrusage user+system microseconds */
+    bool valid = false;
 };
 
 struct MonitorSnapshot {

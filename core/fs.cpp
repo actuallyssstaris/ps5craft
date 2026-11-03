@@ -96,6 +96,14 @@ std::int64_t fs_mtime(const std::string &path) {
 }
 
 bool fs_disk_space(const std::string &path, DiskSpace &out) {
+#if defined(__PROSPERO__)
+    /* statvfs is not provided by the title's clean-room libc companion; the
+       symbol resolves to an unmapped address and kills the process. Capacity
+       is therefore reported as unavailable on PS5 rather than guessed. */
+    (void)path;
+    (void)out;
+    return false;
+#else
     struct statvfs info {};
     if (statvfs(path.empty() ? "/" : path.c_str(), &info) != 0) return false;
     out.total = static_cast<std::uint64_t>(info.f_frsize) *
@@ -103,6 +111,7 @@ bool fs_disk_space(const std::string &path, DiskSpace &out) {
     out.free = static_cast<std::uint64_t>(info.f_frsize) *
                static_cast<std::uint64_t>(info.f_bavail);
     return true;
+#endif
 }
 
 bool fs_remove_tree(const std::string &path) {
