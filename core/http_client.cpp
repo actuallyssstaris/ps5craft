@@ -84,10 +84,17 @@ std::string curl_error(CURLcode code, const char *buffer) {
 
 } // namespace
 
+namespace {
+std::string g_ca_bundle;
+}
+
+void http_set_ca_bundle(std::string path) { g_ca_bundle = std::move(path); }
+
 std::string http_ca_bundle() {
     if (const char *e = std::getenv("PS5CRAFT_CA_BUNDLE")) {
         if (*e) return e;
     }
+    if (!g_ca_bundle.empty()) return g_ca_bundle;
     if (const char *root = std::getenv("PS5CRAFT_DATA_ROOT")) {
         std::string p = std::string(root) + "/ca-bundle.crt";
         if (access(p.c_str(), R_OK) == 0) return p;

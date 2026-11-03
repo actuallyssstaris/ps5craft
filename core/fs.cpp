@@ -97,9 +97,9 @@ std::int64_t fs_mtime(const std::string &path) {
 
 bool fs_disk_space(const std::string &path, DiskSpace &out) {
 #if defined(__PROSPERO__)
-    /* statvfs is not provided by the title's clean-room libc companion; the
-       symbol resolves to an unmapped address and kills the process. Capacity
-       is therefore reported as unavailable on PS5 rather than guessed. */
+    /* statvfs faults in this title's runtime (it resolves to an unmapped
+       address, backtrace frame 0x40b373). Capacity is therefore reported as
+       unavailable on PS5 rather than guessed. */
     (void)path;
     (void)out;
     return false;

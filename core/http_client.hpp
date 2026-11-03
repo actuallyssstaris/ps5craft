@@ -33,4 +33,8 @@ bool http_download(const std::string &url, const std::string &path,
 /* Where the CA bundle lives, or empty to use libcurl's default. */
 std::string http_ca_bundle();
 
+/* Select the CA bundle explicitly. Used by the title entry point after it has
+   chosen a writable data root; PS5CRAFT_CA_BUNDLE still wins. */
+void http_set_ca_bundle(std::string path);
+
 } // namespace ps5craft

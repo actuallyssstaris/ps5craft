@@ -11,9 +11,12 @@
 #include <cstring>
 #include <string>
 #include <thread>
+#include <vector>
 #include <chrono>
 
 #include "../core/backend.hpp"
+#include "../core/fs.hpp"
+#include "../core/http_client.hpp"
 #include "../src/http_api.hpp"
 
 using namespace std::chrono_literals;
@@ -30,24 +33,70 @@ static void handle_signal(int) { g_running = 0; }
    present so the failure mode is clear instead of a silent TLS error. */
 static void note_ca_bundle(const std::string &data_root) {
     if (getenv("PS5CRAFT_CA_BUNDLE")) return;
-    std::string path = data_root + "/ca-bundle.crt";
-    std::FILE *f = std::fopen(path.c_str(), "r");
-    if (f) { std::fclose(f); return; }
+    const std::string target = data_root + "/ca-bundle.crt";
+    std::string text;
+    if (ps5craft::fs_read_file(target, text)) {
+        ps5craft::http_set_ca_bundle(target);
+        return;
+    }
+    /* The title ships the bundle in its app folder. Copy it into the writable
+       data root once, so libcurl has a stable path on every launch. */
+    if (ps5craft::fs_read_file("/app0/assets/ca-bundle.crt", text) &&
+        ps5craft::fs_write_file(target, text)) {
+        ps5craft::http_set_ca_bundle(target);
+        std::printf("CA bundle installed at %s\n", target.c_str());
+        return;
+    }
     std::fprintf(stderr,
         "NOTICE: no CA bundle configured (PS5CRAFT_CA_BUNDLE or %s).\n"
         "        Catalog HTTPS downloads will fail until one is provided.\n"
-        "        Ship assets/ca-bundle.crt into the data root.\n", path.c_str());
+        "        Ship assets/ca-bundle.crt into the data root.\n", target.c_str());
+}
+
+/* A root counts as usable only when a file can be written and read back.
+   Directory existence alone is not enough: /download0 is absent on some
+   loader setups and mkdir can appear to succeed on a read-only mount. */
+static bool root_is_writable(const std::string &root) {
+    if (root.empty() || !ps5craft::fs_mkdirs(root)) return false;
+    const std::string probe = root + "/.write-probe";
+    const std::string token = "ps5craft";
+    if (!ps5craft::fs_write_file(probe, token)) return false;
+    std::string back;
+    const bool ok = ps5craft::fs_read_file(probe, back) && back == token;
+    ps5craft::fs_remove_tree(probe);
+    return ok;
+}
+
+static std::string choose_data_root() {
+    std::vector<std::string> candidates;
+    if (const char *env = std::getenv("PS5CRAFT_DATA_ROOT"); env && *env)
+        candidates.push_back(env);
+#if defined(__PROSPERO__)
+    /* /download0 is the conventional per-title data mount, but it is not
+       present on every loader. Fall back to the title folder itself, then to
+       the volatile app temp mount. */
+    candidates.push_back("/download0/PS5Craft");
+    candidates.push_back("/data/homebrew/PPSA90104/data");
+    candidates.push_back("/app_temp0/ps5craft");
+#else
+    candidates.push_back("/download0/PS5Craft");
+#endif
+    for (const auto &candidate : candidates) {
+        if (root_is_writable(candidate)) return candidate;
+        std::fprintf(stderr, "data root %s is not writable\n", candidate.c_str());
+    }
+    /* Nothing probed clean: use the first choice so the failure is reported by
+       the API instead of silently writing somewhere unexpected. */
+    return candidates.front();
 }
 
 int main() {
     std::signal(SIGINT, handle_signal);
     std::signal(SIGTERM, handle_signal);
 
-    /* Data root: PS5Craft data directory. On console this lives under
-       /download0 or /data/homebrew/<title>/data depending on the loader. */
-    std::string data_root = getenv("PS5CRAFT_DATA_ROOT")
-                                ? getenv("PS5CRAFT_DATA_ROOT")
-                                : "/download0/PS5Craft";
+    /* Data root: PS5Craft data directory. Selected by write probe because the
+       loader decides which mounts the title can actually use. */
+    std::string data_root = choose_data_root();
 
     ps5craft::Backend backend(data_root);
     note_ca_bundle(data_root);

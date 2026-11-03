@@ -538,6 +538,7 @@ extern "C" enum MHD_Result api_handler(void *cls, struct MHD_Connection *conn,
         std::strcmp(method, "GET") == 0) {
         ps5craft::DiskSpace disk;
         ps5craft::Json out = ps5craft::Json::object();
+        out.set("data_root", g_backend->data_root());
         if (ps5craft::fs_disk_space(g_backend->data_root(), disk)) {
             ps5craft::Json d = ps5craft::Json::object();
             d.set("total", static_cast<double>(disk.total));
