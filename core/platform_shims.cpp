@@ -164,8 +164,9 @@ unsigned int ZSTD_versionNumber(void) { return 0; }
 
 /* Exception entry points referenced by libc++abi but never reached
    because the title is built with -fno-exceptions. Provided so the link
-   completes; they abort if somehow invoked. */
-void _Unwind_RaiseException(void *) { abort(); }
-void _Unwind_DeleteException(void *) { abort(); }
+   completes; they abort if somehow invoked. Weak, because the native UI
+   kit links libunwind, whose strong definitions must win. */
+__attribute__((weak)) void _Unwind_RaiseException(void *) { abort(); }
+__attribute__((weak)) void _Unwind_DeleteException(void *) { abort(); }
 
 } // extern "C"
