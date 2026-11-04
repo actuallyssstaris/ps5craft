@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Upload PS5Craft title files to the console through ps5-web-file-manager.
+"""Upload a PS5Craft title folder to the console through ps5-web-file-manager.
 
 The console's ftpsrv.elf hangs when a file starts with the SELF magic, so the
 title cannot be installed over FTP. This uses the web file manager's HTTP API:
@@ -9,7 +9,11 @@ title cannot be installed over FTP. This uses the web file manager's HTTP API:
                               X-WFM-Overwrite, X-WFM-Size; raw body)
   POST /api/upload/finish    (header X-WFM-Task-ID)
 
-Usage: upload_wfm.py <console-ip> [port]
+Every file under the source folder is uploaded to TITLE_DIR, keeping its
+relative path. The executable and its metadata go last, so an interrupted
+upload leaves the previous launchable title in place.
+
+Usage: upload_wfm.py <console-ip> [port] [source-dir]
 """
 import sys
 import os
@@ -17,28 +21,25 @@ import json
 import hashlib
 import urllib.request
 import urllib.parse
+import urllib.error
 
 HOST = sys.argv[1] if len(sys.argv) > 1 else "192.168.2.15"
 PORT = sys.argv[2] if len(sys.argv) > 2 else "8889"
+SOURCE = sys.argv[3] if len(sys.argv) > 3 else "dist/PPSA90104"
 BASE = f"http://{HOST}:{PORT}"
 
 TITLE_DIR = "/data/homebrew/PPSA90104"
-FILES = [
-    (TITLE_DIR, "eboot.bin", "dist/PPSA90104/eboot.bin"),
-    (TITLE_DIR + "/sce_sys", "param.json", "dist/PPSA90104/sce_sys/param.json"),
-    (TITLE_DIR + "/sce_sys", "icon0.png", "dist/PPSA90104/sce_sys/icon0.png"),
-    (TITLE_DIR + "/sce_module", "libc.prx", "dist/PPSA90104/sce_module/libc.prx"),
-    (TITLE_DIR + "/assets", "ca-bundle.crt", "dist/PPSA90104/assets/ca-bundle.crt"),
-    (TITLE_DIR + "/assets/web", "index.html", "dist/PPSA90104/assets/web/index.html"),
-]
 
 
-def post(path, data=None, headers=None, timeout=300):
+def post(path, data=None, headers=None, timeout=600):
     req = urllib.request.Request(BASE + path, data=data, method="POST")
     for k, v in (headers or {}).items():
         req.add_header(k, v)
-    with urllib.request.urlopen(req, timeout=timeout) as r:
-        return r.status, r.read()
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            return r.status, r.read()
+    except urllib.error.HTTPError as error:
+        return error.code, error.read()
 
 
 def sha256_file(p):
@@ -63,7 +64,7 @@ def prepare(dest_dir, name, size):
                         {"Content-Type": "application/x-www-form-urlencoded"})
     doc = json.loads(body)
     if not doc.get("ok"):
-        raise RuntimeError(f"prepare failed: {doc}")
+        raise RuntimeError(f"prepare failed HTTP {status}: {body[:200]!r}")
     return doc["task_id"]
 
 
@@ -73,8 +74,8 @@ def upload(task_id, dest_dir, name, local):
         payload = f.read()
     status, body = post("/api/upload-file", payload, {
         "X-WFM-Task-ID": str(task_id),
-        "X-WFM-Path": dest_dir,
-        "X-WFM-Rel": name,
+        "X-WFM-Path": urllib.parse.quote(dest_dir, safe=""),
+        "X-WFM-Rel": urllib.parse.quote(name, safe=""),
         "X-WFM-Overwrite": "1",
         "X-WFM-Size": str(size),
         "Content-Type": "application/octet-stream",
@@ -90,11 +91,25 @@ def finish(task_id):
 
 
 def main():
-    os.chdir(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
-    for dest_dir, name, local in FILES:
+    source = os.path.abspath(SOURCE)
+    if not os.path.isdir(source):
+        raise SystemExit(f"source folder not found: {source}")
+    files = []
+    for root, _dirs, names in os.walk(source):
+        for name in names:
+            files.append(os.path.join(root, name))
+    # The executable and metadata go last: the title stays launchable until
+    # the new pair lands.
+    files.sort(key=lambda p: (os.path.basename(p) in ("eboot.bin", "param.json"), p))
+
+    for local in files:
+        rel = os.path.relpath(local, source)
+        parent = os.path.dirname(rel)
+        dest_dir = TITLE_DIR if parent in ("", ".") else TITLE_DIR + "/" + parent
+        name = os.path.basename(rel)
         want = sha256_file(local)
         size = os.path.getsize(local)
-        print(f"\n-> {dest_dir}/{name}  {size} bytes  {want[:16]}…")
+        print(f"\n-> {dest_dir}/{name}  {size} bytes  {want[:16]}...")
         task = prepare(dest_dir, name, size)
         print(f"   task {task}")
         status, body = upload(task, dest_dir, name, local)

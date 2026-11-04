@@ -70,6 +70,13 @@ jobs:
           path: gui/kit/dist/PPSA90104
           if-no-files-found: error
 
+      - name: Upload unstripped ELF
+        uses: actions/upload-artifact@v4
+        with:
+          name: ps5craft-kit-symbols
+          path: gui/kit/build/llvm-pie.elf
+          if-no-files-found: error
+
   preview:
     name: Host snapshots
     runs-on: ubuntu-24.04
