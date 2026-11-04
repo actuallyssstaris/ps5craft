@@ -6,6 +6,7 @@
 #include <cstdio>
 #include <cstring>
 #include <fcntl.h>
+#include <spawn.h>
 #include <sys/select.h>
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -98,39 +99,48 @@ int process_spawn(const std::vector<std::string> &argv,
     }
     set_nonblock(out_pipe[0]);
 
-    pid_t pid = fork();
-    if (pid < 0) {
+    std::vector<char *> cargv;
+    cargv.reserve(argv.size() + 1);
+    for (const auto &a : argv) cargv.push_back(const_cast<char *>(a.c_str()));
+    cargv.push_back(nullptr);
+
+    std::vector<char *> cenv;
+    cenv.reserve(env.size() + 1);
+    for (const auto &e : env) cenv.push_back(const_cast<char *>(e.c_str()));
+    cenv.push_back(nullptr);
+
+    const std::string exe = resolve_executable(argv[0], env);
+
+    /* The PS5 libc exports posix_spawn to titles but not fork(): calling fork
+       jumps through a null symbol. posix_spawn creates the process and applies
+       the descriptor actions before the child runs. There is no portable
+       chdir action, so callers must pass absolute paths; the server passes an
+       absolute jar and absolute -Duser.dir/-Djava.io.tmpdir values. */
+    (void)cwd;
+
+    posix_spawn_file_actions_t actions;
+    if (posix_spawn_file_actions_init(&actions) != 0) {
         close(out_pipe[0]); close(out_pipe[1]);
-        result.reason = "fork failed";
+        close(in_pipe[0]); close(in_pipe[1]);
+        result.reason = "spawn actions failed";
         return -1;
     }
+    posix_spawn_file_actions_adddup2(&actions, out_pipe[1], STDOUT_FILENO);
+    posix_spawn_file_actions_adddup2(&actions, out_pipe[1], STDERR_FILENO);
+    posix_spawn_file_actions_adddup2(&actions, in_pipe[0], STDIN_FILENO);
+    posix_spawn_file_actions_addclose(&actions, out_pipe[0]);
+    posix_spawn_file_actions_addclose(&actions, in_pipe[1]);
 
-    if (pid == 0) {
-        /* child */
-        close(out_pipe[0]);
-        if (dup2(out_pipe[1], STDOUT_FILENO) < 0) _exit(127);
-        if (dup2(out_pipe[1], STDERR_FILENO) < 0) _exit(127);
-        close(out_pipe[1]);
-
-        close(in_pipe[1]);
-        if (dup2(in_pipe[0], STDIN_FILENO) < 0) _exit(127);
-        close(in_pipe[0]);
-
-        if (!cwd.empty() && chdir(cwd.c_str()) != 0) _exit(126);
-
-        std::vector<char *> cargv;
-        cargv.reserve(argv.size() + 1);
-        for (const auto &a : argv) cargv.push_back(const_cast<char *>(a.c_str()));
-        cargv.push_back(nullptr);
-
-        std::vector<char *> cenv;
-        cenv.reserve(env.size() + 1);
-        for (const auto &e : env) cenv.push_back(const_cast<char *>(e.c_str()));
-        cenv.push_back(nullptr);
-
-        const std::string exe = resolve_executable(argv[0], env);
-        execve(exe.c_str(), cargv.data(), cenv.data());
-        _exit(127);
+    pid_t pid = -1;
+    int spawn_error = posix_spawn(&pid, exe.c_str(), &actions, nullptr,
+                                  cargv.data(), cenv.data());
+    posix_spawn_file_actions_destroy(&actions);
+    if (spawn_error != 0) {
+        close(out_pipe[0]); close(out_pipe[1]);
+        close(in_pipe[0]); close(in_pipe[1]);
+        result.reason = std::string("spawn failed: ") +
+                        std::strerror(spawn_error);
+        return -1;
     }
 
     /* parent */

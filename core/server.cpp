@@ -43,7 +43,12 @@ std::vector<std::string> Server::build_command(const std::string &workdir_abs) c
     cmd.push_back("-Dps5.mc.workdir=" + workdir_abs);
     for (const auto &a : cfg.jvm_args) cmd.push_back(a);
     cmd.push_back("-jar");
-    cmd.push_back(cfg.jar_path);
+    /* posix_spawn has no chdir action, so the jar must not rely on the
+       process working directory. */
+    if (!cfg.jar_path.empty() && cfg.jar_path[0] != '/')
+        cmd.push_back(workdir_abs + "/" + cfg.jar_path);
+    else
+        cmd.push_back(cfg.jar_path);
     for (const auto &a : cfg.server_args) cmd.push_back(a);
     return cmd;
 }
