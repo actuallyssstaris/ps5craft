@@ -82,10 +82,23 @@ std::size_t LogRing::size() const {
 
 std::size_t LogRing::capacity() const { return max_bytes_; }
 
+namespace {
+
+void spawn_trace(const char *step, const std::string &detail = {}) {
+    if (detail.empty())
+        std::fprintf(stderr, "[spawn] %s\n", step);
+    else
+        std::fprintf(stderr, "[spawn] %s: %s\n", step, detail.c_str());
+    std::fflush(stderr);
+}
+
+} // namespace
+
 int process_spawn(const std::vector<std::string> &argv,
                   const std::vector<std::string> &env,
                   const std::string &cwd,
                   ProcessResult &result) {
+    spawn_trace("enter", argv.empty() ? "" : argv[0]);
     int out_pipe[2] = {-1, -1};
     int in_pipe[2] = {-1, -1};
     if (pipe(out_pipe) != 0) {
@@ -110,6 +123,7 @@ int process_spawn(const std::vector<std::string> &argv,
     cenv.push_back(nullptr);
 
     const std::string exe = resolve_executable(argv[0], env);
+    spawn_trace("resolved", exe);
 
     /* The PS5 libc exports posix_spawn to titles but not fork(): calling fork
        jumps through a null symbol. posix_spawn creates the process and applies
@@ -119,6 +133,7 @@ int process_spawn(const std::vector<std::string> &argv,
     (void)cwd;
 
     posix_spawn_file_actions_t actions;
+    spawn_trace("actions-init");
     if (posix_spawn_file_actions_init(&actions) != 0) {
         close(out_pipe[0]); close(out_pipe[1]);
         close(in_pipe[0]); close(in_pipe[1]);
@@ -132,8 +147,11 @@ int process_spawn(const std::vector<std::string> &argv,
     posix_spawn_file_actions_addclose(&actions, in_pipe[1]);
 
     pid_t pid = -1;
+    spawn_trace("calling posix_spawn");
     int spawn_error = posix_spawn(&pid, exe.c_str(), &actions, nullptr,
                                   cargv.data(), cenv.data());
+    spawn_trace("posix_spawn returned",
+                std::to_string(spawn_error) + " pid=" + std::to_string(pid));
     posix_spawn_file_actions_destroy(&actions);
     if (spawn_error != 0) {
         close(out_pipe[0]); close(out_pipe[1]);
