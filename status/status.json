@@ -1,8 +1,8 @@
 {
   "project": "PS5Craft",
   "tagline": "PS5 Minecraft Java server manager",
-  "updated": "2026-11-03T09:10:00Z",
-  "overall_percent": 90,
+  "updated": "2026-11-07T09:10:00Z",
+  "overall_percent": 85,
   "links": [
     {
       "label": "Live dashboard",
@@ -15,11 +15,11 @@
   ],
   "eta": {
     "core_host_verified": "done",
-    "ps5_native_binary": "Built and signed in GitHub Actions (workflow `PS5 title`), artifact `PPSA90104`.",
-    "note": "Title deployed and launching on the console. Crash on /api/system fixed. Remaining: install/start/connect/stop flow on console, then native Vulkan UI (v2).",
-    "console_access": "Remote Play via helper daemon on 127.0.0.1:9595; WFM on 8889 for uploads"
+    "ps5_native_binary": "Built and signed in GitHub Actions (workflow `Native UI`), artifact `ps5craft-kit-PPSA90104`.",
+    "note": "Native v2 title runs on the console (Servers screen, pad, sounds, HTTP API). Start fails cleanly with \"java runtime not found: java\" because no JVM is linked into the title. Remaining: build the ps5-java25-homebrew runtime on macOS CI and link JNI_CreateJavaVM.",
+    "console_access": "Remote Play via helper daemon on 127.0.0.1:9695; WFM on 8888; Payload Manager on 8084"
   },
-  "state": "Version 1 feature complete. Title deployed at /data/homebrew/PPSA90104/, launches from the XMB, dashboard and API respond on port 8080. /api/system crash (statvfs) fixed; data root now chosen by write probe and reported in /api/system. eboot sha256 4dc12156b0b3f30d41430b801de5f4d853067ff89fbc04c82ec5232bd65b3682 (CI run 41649007226). Next: full install/start/connect/stop run on console.",
+  "state": "v2 native title deployed at /data/homebrew/PPSA90104/, eboot sha256 3b4aae01b55620d82d7f620ce8f89e9cd132d7830d039b05acf5d1619ec4ec31 (CI run 42377518737). Servers screen and :8080 API verified. Start/Stop no longer crash: a missing runtime is reported as state=error with exit_reason \"java runtime not found: java\". The title has no JVM; server start is blocked until the OpenJDK 25 runtime is linked in.",
   "phases": [
     {
       "id": 1,
@@ -37,9 +37,9 @@
     {
       "id": 3,
       "name": "Native UI",
-      "percent": 0,
-      "state": "v2",
-      "detail": "Deferred to version 2. Blocked on the pinned PS5_PayloadSDK fork + RADV archive. Version 1 controls everything through the web dashboard."
+      "percent": 100,
+      "state": "done",
+      "detail": "Native OpenGL UI (ps5-homebrew-ui) with Servers screen, pad navigation, sounds, Start/Stop; runs in the same process as the backend and HTTP API."
     },
     {
       "id": 4,
@@ -60,7 +60,7 @@
       "name": "Testing",
       "percent": 95,
       "state": "active",
-      "detail": "Unit tests pass (incl. SHA vectors, monitoring). Vanilla/Paper/Fabric each installed through the API and ran to Done on host. Console: dashboard + API verified, crash fixed, data-root persistence pending relaunch."
+      "detail": "Unit tests pass, including the missing-runtime start path. Console: UI, Start/Stop error path and /api/system verified. A real server run is blocked on the embedded JVM."
     }
   ],
   "todo": [
@@ -143,6 +143,10 @@
     {
       "done": false,
       "text": "Console verification of the signed title"
+    },
+    {
+      "done": false,
+      "text": "Build the ps5-java25-homebrew OpenJDK 25 runtime on a macOS CI runner and link JNI_CreateJavaVM into PPSA90104"
     }
   ],
   "findings": [
@@ -151,5 +155,5 @@
     "Resource bars show measured values only: per-instance directory size and volume capacity.",
     "PS5 disk capacity and system memory are reported as unavailable until a safe source is proven; no value is guessed."
   ],
-  "console_note": "WFM on 8889 (tools/upload_wfm.py), ShadowMountPlus 10101, Remote Play daemon 127.0.0.1:9595. chmod 0777 -R required after upload."
+  "console_note": "WFM on 8888 (tools/upload_wfm.py), Payload Manager 8084, ShadowMountPlus 10101, Remote Play daemon 127.0.0.1:9695. chmod 0777 -R after upload; delete eboot.bin before replacing it (ETXTBSY)."
 }

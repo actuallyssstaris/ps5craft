@@ -10,6 +10,42 @@ Version 1 (web dashboard only) is feature complete. The title is deployed and
 launches on the console. Remaining: run the full install/start/connect/stop
 flow on the console with the current build.
 
+### v2 native title — console status (2026-11-07)
+
+`PPSA90104` now builds from `gui/` (ps5-homebrew-ui + the shared `core/` and
+`platform/` backend). It runs one process: native OpenGL UI, HTTP API on
+`:8080`, and the instance supervisor.
+
+Verified on the console with `eboot.bin` sha256
+`3b4aae01b55620d82d7f620ce8f89e9cd132d7830d039b05acf5d1619ec4ec31`
+(CI run `42377518737`, workflow `Native UI`):
+
+- Servers screen renders at 1080p, pad input, sounds, 60 fps stats.
+- Start from the UI and `POST /api/instances/<id>/start` both fail cleanly:
+  HTTP 409, `state: "error"`, `exit_reason: "java runtime not found: java"`,
+  row shows `ERROR` and the same line in `LAST LOG`. The title stays alive.
+
+Start crash history, in order:
+
+1. `fork()` is not exported by `libkernel.prx`; the symbol resolved to 0 and
+   the title jumped to RIP 0.
+2. `posix_spawn()` is exported by `libSceLibcInternal` and works from a
+   payload, but a title faults inside it when the executable does not exist
+   (`[spawn] calling posix_spawn` was the last log line, RIP `0x2745f6`).
+   The standalone probe (`/data/spawnprobe.log`) returns `ENOENT` normally.
+3. Current build resolves the runtime first and never calls `posix_spawn`
+   without an executable on disk. A missing runtime is a reported error, not
+   a crash.
+
+**Blocker for any real server:** this title does not contain a JVM. A title
+cannot `execve` a JVM binary, so the runtime has to be linked into the title
+and started with `JNI_CreateJavaVM` (the `ps5-java25-homebrew` /
+ProsperoCraft model, see `docs/research.md`). That build needs a macOS host
+with LLVM/LLD 22.1.7 and a Java 25 JDK; this dev host is Linux/arm64 and
+cannot produce it. `java_path` spawn support stays in the code for host tests
+and for a future bundled launcher, but on the console it correctly reports
+the missing runtime.
+
 Live pages from the development device:
 - Dashboard: `http://10.15.175.8:8080/` (host build of the same HTTP API)
 - Build status: `http://10.15.175.8:8090/`
@@ -272,10 +308,20 @@ backend changes for it.
 
 ## Blockers
 
-- RADV / ps5platform SDK deps missing → Vulkan native title can't build fully.
-- macOS OpenJDK build host missing → can't rebuild ps5-java25-homebrew runtime here.
-- Console FTP read-only → install the title through WFM on port 8889
-  (`tools/upload_wfm.py`), not FTP.
+- **No JVM in the title.** `Start` reports `java runtime not found: java`
+  instead of crashing. Fixing it means building the `ps5-java25-homebrew`
+  runtime (OpenJDK 25, static, `JNI_CreateJavaVM`) on a macOS host and linking
+  it into `PPSA90104`. The tooling lives in `/tmp/opencode/ps5-java25-homebrew`;
+  it pins LLVM/LLD 22.1.7 and a Java 25 boot JDK. A macOS GitHub Actions
+  runner is the only build host available to this project today.
+- **No process spawn from a title.** `fork`/`vfork`/`ptrace`/`sceKernelSpawn`
+  are only in `libkernel_sys.prx`; `posix_spawn` faults. One JVM per title
+  process is therefore the architecture (matches decision 2 below).
+- Console FTP is unreliable → install the title through WFM on port 8888
+  (`tools/upload_wfm.py`), not FTP. WFM cannot overwrite a mapped `eboot.bin`
+  (ETXTBSY): delete `/api/delete` then upload. Payload Manager (`:8084`) loads
+  WFM/klogsrv/payloads; `POST /loadpayload:<path>` needs the
+  `X-PLDMGR-Request: 1` header.
 
 ## Tests
 
