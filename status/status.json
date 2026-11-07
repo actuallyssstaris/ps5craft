@@ -1,7 +1,7 @@
 {
   "project": "PS5Craft",
   "tagline": "PS5 Minecraft Java server manager",
-  "updated": "2026-11-07T10:20:00Z",
+  "updated": "2026-11-07T15:54:57Z",
   "overall_percent": 85,
   "links": [
     {
@@ -165,7 +165,9 @@
     "host": "GitHub Codespace expert-carnival-77w7qvp99vvrhx57g, 4 cores / 16 GB, Ubuntu x86_64",
     "toolchain": "ps5-payload-sdk v0.42, clang/lld 18.1.3, boot JDK 25.0.5, gmake",
     "configure": "passed (CONF=ps5-bootstrap, target x86_64-unknown-freebsd)",
-    "state": "building HotSpot, then java.base classes and native libraries",
-    "next": "fetch libjvm objects + java.base libs, link JNI_CreateJavaVM into PPSA90104, run Vanilla server, verify :25565"
+    "state": "HotSpot 1088/1135 objects compiled; linking libjvm.so. java.base classes and native libraries next.",
+    "next": "fetch libjvm objects + java.base libs, link JNI_CreateJavaVM into PPSA90104, run Vanilla server, verify :25565",
+    "hotspot_percent": 96,
+    "runtime_percent": 50
   }
 }
