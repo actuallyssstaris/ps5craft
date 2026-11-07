@@ -1,7 +1,7 @@
 {
   "project": "PS5Craft",
   "tagline": "PS5 Minecraft Java server manager",
-  "updated": "2026-11-07T09:10:00Z",
+  "updated": "2026-11-07T10:20:00Z",
   "overall_percent": 85,
   "links": [
     {
@@ -16,10 +16,10 @@
   "eta": {
     "core_host_verified": "done",
     "ps5_native_binary": "Built and signed in GitHub Actions (workflow `Native UI`), artifact `ps5craft-kit-PPSA90104`.",
-    "note": "Native v2 title runs on the console (Servers screen, pad, sounds, HTTP API). Start fails cleanly with \"java runtime not found: java\" because no JVM is linked into the title. Remaining: build the ps5-java25-homebrew runtime on macOS CI and link JNI_CreateJavaVM.",
+    "note": "Native v2 title runs on the console. Start fails cleanly with \"java runtime not found: java\". OpenJDK 25 is now being built in a GitHub Codespace; next step is linking JNI_CreateJavaVM into PPSA90104.",
     "console_access": "Remote Play via helper daemon on 127.0.0.1:9695; WFM on 8888; Payload Manager on 8084"
   },
-  "state": "v2 native title deployed at /data/homebrew/PPSA90104/, eboot sha256 3b4aae01b55620d82d7f620ce8f89e9cd132d7830d039b05acf5d1619ec4ec31 (CI run 42377518737). Servers screen and :8080 API verified. Start/Stop no longer crash: a missing runtime is reported as state=error with exit_reason \"java runtime not found: java\". The title has no JVM; server start is blocked until the OpenJDK 25 runtime is linked in.",
+  "state": "v2 native title deployed and verified on the console (eboot 3b4aae01...). Start/Stop no longer crash; a missing runtime is a reported error. The OpenJDK 25 runtime build is running in Codespace expert-carnival-77w7qvp99vvrhx57g: ps5-payload-sdk v0.42, clang/lld 18, boot JDK 25. Configure passed; HotSpot and java.base are building.",
   "phases": [
     {
       "id": 1,
@@ -71,6 +71,10 @@
     {
       "done": false,
       "text": "PS5 console run: relaunch, verify instances.json persists, install Vanilla 1.21.11, start to Done, connect 25565, stop"
+    },
+    {
+      "done": false,
+      "text": "Codespace JVM build: configure passed; HotSpot and java.base in progress"
     },
     {
       "done": true,
@@ -146,7 +150,7 @@
     },
     {
       "done": false,
-      "text": "Build the ps5-java25-homebrew OpenJDK 25 runtime on a macOS CI runner and link JNI_CreateJavaVM into PPSA90104"
+      "text": "Build the ps5-java25-homebrew OpenJDK 25 runtime in a GitHub Codespace and link JNI_CreateJavaVM into PPSA90104"
     }
   ],
   "findings": [
@@ -155,5 +159,13 @@
     "Resource bars show measured values only: per-instance directory size and volume capacity.",
     "PS5 disk capacity and system memory are reported as unavailable until a safe source is proven; no value is guessed."
   ],
-  "console_note": "WFM on 8888 (tools/upload_wfm.py), Payload Manager 8084, ShadowMountPlus 10101, Remote Play daemon 127.0.0.1:9695. chmod 0777 -R after upload; delete eboot.bin before replacing it (ETXTBSY)."
+  "console_note": "WFM on 8888 (tools/upload_wfm.py), Payload Manager 8084, ShadowMountPlus 10101, Remote Play daemon 127.0.0.1:9695. chmod 0777 -R after upload; delete eboot.bin before replacing it (ETXTBSY).",
+  "build": {
+    "target": "OpenJDK 25 for PS5 (ps5-java25-homebrew, BSD patch set)",
+    "host": "GitHub Codespace expert-carnival-77w7qvp99vvrhx57g, 4 cores / 16 GB, Ubuntu x86_64",
+    "toolchain": "ps5-payload-sdk v0.42, clang/lld 18.1.3, boot JDK 25.0.5, gmake",
+    "configure": "passed (CONF=ps5-bootstrap, target x86_64-unknown-freebsd)",
+    "state": "building HotSpot, then java.base classes and native libraries",
+    "next": "fetch libjvm objects + java.base libs, link JNI_CreateJavaVM into PPSA90104, run Vanilla server, verify :25565"
+  }
 }

@@ -95,6 +95,9 @@
   <h2>ETA</h2>
   <div class="eta" id="eta"></div>
 
+  <h2>Runtime build</h2>
+  <div class="eta" id="build"></div>
+
   <h2>Phases</h2>
   <div class="phases" id="phases"></div>
 
@@ -133,6 +136,9 @@ async function load() {
       `<a class="pill" href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.label)}</a>`).join('');
 
   document.getElementById('eta').innerHTML = Object.entries(d.eta)
+    .map(([k, v]) => `<div><b>${esc(k.replace(/_/g, ' '))}</b><span>${esc(v)}</span></div>`).join('');
+
+  document.getElementById('build').innerHTML = Object.entries(d.build || {})
     .map(([k, v]) => `<div><b>${esc(k.replace(/_/g, ' '))}</b><span>${esc(v)}</span></div>`).join('');
 
   document.getElementById('phases').innerHTML = d.phases.map(p => `
