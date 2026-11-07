@@ -47,6 +47,9 @@ jobs:
       - name: Fetch pinned pacbrew ports
         run: gui/tools/build-kit.sh pacbrew
 
+      - name: Fetch pinned Java runtime
+        run: gui/tools/fetch-jvm.sh
+
       - name: Set title identity
         env:
           TITLE_ID: PPSA90104

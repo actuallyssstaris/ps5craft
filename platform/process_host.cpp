@@ -12,6 +12,10 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+#if defined(__PROSPERO__)
+#include "ps5/jvm_backend.hpp"
+#endif
+
 namespace ps5craft {
 
 namespace {
@@ -98,6 +102,11 @@ int process_spawn(const std::vector<std::string> &argv,
                   const std::vector<std::string> &env,
                   const std::string &cwd,
                   ProcessResult &result) {
+#if defined(__PROSPERO__)
+    /* A title cannot exec a JVM; the console build links HotSpot in-process. */
+    (void)env;
+    return jvm_backend_spawn(argv, cwd, result);
+#else
     spawn_trace("enter", argv.empty() ? "" : argv[0]);
     int out_pipe[2] = {-1, -1};
     int in_pipe[2] = {-1, -1};
@@ -169,9 +178,13 @@ int process_spawn(const std::vector<std::string> &argv,
     g_stdin_fd[static_cast<int>(pid)] = in_pipe[1];
     result.started_at = 0; /* set by caller */
     return static_cast<int>(pid);
+#endif
 }
 
 int process_drain(int pid, LogRing *log) {
+#if defined(__PROSPERO__)
+    if (jvm_backend_owns(pid)) return jvm_backend_drain(pid, log);
+#endif
     auto it = g_pipe_fd.find(pid);
     if (it == g_pipe_fd.end()) return -1;
     int fd = it->second;
@@ -193,10 +206,16 @@ int process_drain(int pid, LogRing *log) {
 }
 
 int process_signal(int pid, int sig) {
+#if defined(__PROSPERO__)
+    if (jvm_backend_owns(pid)) return jvm_backend_signal(pid, sig);
+#endif
     return kill(pid, sig);
 }
 
 int process_write(int pid, const char *data, std::size_t len) {
+#if defined(__PROSPERO__)
+    if (jvm_backend_owns(pid)) return jvm_backend_write(pid, data, len);
+#endif
     auto it = g_stdin_fd.find(pid);
     if (it == g_stdin_fd.end()) return -1;
     int fd = it->second;
@@ -214,6 +233,9 @@ int process_write(int pid, const char *data, std::size_t len) {
 }
 
 int process_waitpid(int pid, int *status, int options, ProcessResult &result) {
+#if defined(__PROSPERO__)
+    if (jvm_backend_owns(pid)) return jvm_backend_waitpid(pid, status, options, result);
+#endif
     pid_t reaped = waitpid(pid, status, options);
     if (reaped < 0) {
         if (errno == EINTR) return 0;

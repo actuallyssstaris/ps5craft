@@ -34,8 +34,16 @@ app | deploy) mode=app ;;
 host-snapshots) mode=preview ;;
 *) mode= ;;
 esac
+if [[ $mode == app ]]; then
+    runtime=${PS5CRAFT_JVM_RUNTIME:-$kit/.deps/jvm}
+    export PS5CRAFT_JVM_RUNTIME="$runtime"
+fi
 if [[ -n $mode ]]; then
     bash "$gui/tools/prepare-kit.sh" "$mode"
+fi
+if [[ $mode == app ]]; then
+    APP_LINK_RESPONSE=$(bash "$gui/tools/jvm-runtime.sh" "$runtime")
+    export APP_LINK_RESPONSE
 fi
 
 cd "$kit"

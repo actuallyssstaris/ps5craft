@@ -77,23 +77,25 @@ int Server::start() {
     };
 
     /* posix_spawn in a title dies with SIGSEGV when the executable is absent,
-       so prove the runtime exists before handing it to libc. The reason goes
-       into the log as well: the console row shows the last log line. */
-    const std::string java = process_resolve_executable(
-        cfg.java_path.empty() ? "java" : cfg.java_path, env);
+       so prove the runtime exists before handing it to libc. The console
+       build links HotSpot into the title and has no external executable. */
+    std::string launch_java = cfg.java_path.empty() ? "java" : cfg.java_path;
+#if !defined(__PROSPERO__)
+    launch_java = process_resolve_executable(launch_java, env);
     const char *runtime_error = nullptr;
-    if (java.find('/') == std::string::npos)
+    if (launch_java.find('/') == std::string::npos)
         runtime_error = "java runtime not found: ";
-    else if (access(java.c_str(), X_OK) != 0)
+    else if (access(launch_java.c_str(), X_OK) != 0)
         runtime_error = "java runtime not executable: ";
     if (runtime_error) {
-        exit_reason_ = runtime_error + java;
+        exit_reason_ = runtime_error + launch_java;
         const std::string line = "[PS5Craft] start failed: " + exit_reason_ + "\n";
         log_.append(line.data(), line.size());
         return -1;
     }
+#endif
 
-    auto argv = build_command(cwd, java);
+    auto argv = build_command(cwd, launch_java);
 
     ProcessResult result;
     int pid = process_spawn(argv, env, cwd, result);
