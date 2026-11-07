@@ -27,10 +27,11 @@ std::int64_t now_ms() {
 Server::Server(Sandbox &sandbox, Instance &instance, LogRing &log)
     : sandbox_(sandbox), instance_(instance), log_(log) {}
 
-std::vector<std::string> Server::build_command(const std::string &workdir_abs) const {
+std::vector<std::string> Server::build_command(const std::string &workdir_abs,
+                                               const std::string &java_abs) const {
     const auto &cfg = instance_.config();
     std::vector<std::string> cmd;
-    cmd.push_back(cfg.java_path.empty() ? "java" : cfg.java_path);
+    cmd.push_back(java_abs);
     cmd.push_back("-Xmx" + std::to_string(cfg.memory.max_mib) + "m");
     cmd.push_back("-Xms" + std::to_string(cfg.memory.initial_mib) + "m");
     cmd.push_back("-XX:+UseSerialGC");
@@ -68,13 +69,31 @@ int Server::start() {
     }
     sandbox_.mkdirs(cfg.workdir + "/tmp");
 
-    auto argv = build_command(cwd);
     std::vector<std::string> env = {
         "PATH=/usr/bin:/bin",
         "HOME=" + cwd,
         "USER=ps5craft",
         "LC_ALL=C",
     };
+
+    /* posix_spawn in a title dies with SIGSEGV when the executable is absent,
+       so prove the runtime exists before handing it to libc. The reason goes
+       into the log as well: the console row shows the last log line. */
+    const std::string java = process_resolve_executable(
+        cfg.java_path.empty() ? "java" : cfg.java_path, env);
+    const char *runtime_error = nullptr;
+    if (java.find('/') == std::string::npos)
+        runtime_error = "java runtime not found: ";
+    else if (access(java.c_str(), X_OK) != 0)
+        runtime_error = "java runtime not executable: ";
+    if (runtime_error) {
+        exit_reason_ = runtime_error + java;
+        const std::string line = "[PS5Craft] start failed: " + exit_reason_ + "\n";
+        log_.append(line.data(), line.size());
+        return -1;
+    }
+
+    auto argv = build_command(cwd, java);
 
     ProcessResult result;
     int pid = process_spawn(argv, env, cwd, result);

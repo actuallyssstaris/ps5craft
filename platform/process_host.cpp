@@ -25,10 +25,12 @@ void set_nonblock(int fd) {
     fcntl(fd, F_SETFL, flags | O_NONBLOCK);
 }
 
+} // namespace
+
 /* execve() does not search PATH. Resolve a bare command name first, using the
    PATH we are about to hand the child. */
-std::string resolve_executable(const std::string &name,
-                               const std::vector<std::string> &env) {
+std::string process_resolve_executable(const std::string &name,
+                                       const std::vector<std::string> &env) {
     if (name.empty() || name.find('/') != std::string::npos) return name;
     std::string path = "/usr/bin:/bin";
     for (const auto &e : env) {
@@ -46,8 +48,6 @@ std::string resolve_executable(const std::string &name,
     }
     return name;
 }
-
-} // namespace
 
 LogRing::LogRing(std::size_t max_bytes) : max_bytes_(max_bytes) {}
 
@@ -122,7 +122,7 @@ int process_spawn(const std::vector<std::string> &argv,
     for (const auto &e : env) cenv.push_back(const_cast<char *>(e.c_str()));
     cenv.push_back(nullptr);
 
-    const std::string exe = resolve_executable(argv[0], env);
+    const std::string exe = process_resolve_executable(argv[0], env);
     spawn_trace("resolved", exe);
 
     /* The PS5 libc exports posix_spawn to titles but not fork(): calling fork

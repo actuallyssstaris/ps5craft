@@ -204,6 +204,30 @@ static void test_instance_lifecycle() {
     std::printf("ok\n");
 }
 
+static void test_missing_runtime() {
+    std::printf("test_missing_runtime ... ");
+    std::string root = "/tmp/ps5craft_missing_runtime_test";
+    std::system(("rm -rf " + root).c_str());
+    Backend b(root);
+
+    InstanceConfig cfg;
+    cfg.name = "Missing";
+    cfg.java_path = "java-not-installed-ps5craft";
+    std::string id = b.create_instance(cfg);
+    CHECK(!id.empty());
+
+    /* A missing runtime must fail the start, not reach posix_spawn: that call
+       dies with SIGSEGV in a title when the executable is absent. */
+    CHECK(b.start_instance(id) == false);
+    Instance *inst = b.instance(id);
+    CHECK(inst != nullptr);
+    CHECK(inst->state() == InstanceState::kError);
+    CHECK(inst->pid() == 0);
+    CHECK(inst->exit_reason().find("java runtime not found") != std::string::npos);
+    CHECK(inst->logs().find("java runtime not found") != std::string::npos);
+    std::printf("ok\n");
+}
+
 static void test_zip() {
     std::printf("test_zip ... ");
     std::string root = "/tmp/ps5craft_zip_test";
@@ -367,6 +391,7 @@ int main() {
     test_zip();
     test_instance_state();
     test_instance_lifecycle();
+    test_missing_runtime();
     test_backup();
     test_backend();
     test_process_spawn();

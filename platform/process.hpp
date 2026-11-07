@@ -43,6 +43,12 @@ struct ProcessResult {
     std::uint64_t runtime_ms = 0;
 };
 
+/* Resolve a bare command name against the PATH in env, returning an absolute
+   path. Returns name unchanged when it contains a slash or no candidate is
+   executable. */
+std::string process_resolve_executable(const std::string &name,
+                                       const std::vector<std::string> &env);
+
 /* Spawn argv[0] with args, env, cwd. Returns pid (>0) on success, -1 with
    reason set otherwise. The caller owns reaping via process_wait/process_waitpid.
    Output is captured through process_drain. */
