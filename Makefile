@@ -62,5 +62,4 @@ clean:
 	rm -rf build dist
 
 app:
-	PS5_PAYLOAD_SDK=$${PS5_PAYLOAD_SDK:-$(CURDIR)/.deps/native/ps5-payload-sdk} \
-	  tools/build_ps5.sh
+	bash gui/tools/build-kit.sh app TITLE_ID=PPSA90104 APP_NAME=PS5Craft

@@ -36,12 +36,12 @@ is verified and what is not. Nothing is claimed as working until it has run.
 
 ## Build
 
-Requirements: Linux, `clang-18`, `prospero-lld`, `python3`, and the PS5 payload SDK.
+Requirements: Linux, `clang-18`, `lld-18`, `ninja`, `python3`, and the PS5
+payload SDK. The native UI kit and the OpenGL SDK are fetched from pinned
+mirrors on the first build.
 
 ```sh
-export PS5_PAYLOAD_SDK=/path/to/ps5-payload-sdk
-make app          # builds and signs dist/PPSA90104/
-make deploy PS5_HOST=<console-ip>
+make app          # builds and signs gui/kit/dist/PPSA90104/
 ```
 
 Host build for developing and testing the backend:
