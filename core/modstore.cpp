@@ -122,9 +122,14 @@ bool parse_modrinth_search(const Json &root, std::vector<ModProject> &out) {
         project.description = hit["description"].as_string();
         project.icon_url = hit["icon_url"].as_string();
         project.project_type = hit["project_type"].as_string("mod");
+        project.client_side = hit["client_side"].as_string();
+        project.server_side = hit["server_side"].as_string();
         project.downloads = json_size(hit["downloads"]);
         project.loaders = string_array(hit["categories"]);
         project.game_versions = string_array(hit["versions"]);
+        /* PS5Craft runs a dedicated server, so a mod that only exists on the
+           client would install and then be ignored. */
+        if (project.server_side == "unsupported") continue;
         if (!project.id.empty()) out.push_back(std::move(project));
     }
     return true;

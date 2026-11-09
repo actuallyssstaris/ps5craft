@@ -8,7 +8,8 @@
 #   make app         # build + sign the PS5 title into dist/PPSA90104/
 
 CXX ?= c++
-CXXFLAGS := -std=c++17 -O2 -Wall -Wextra -Icore -Iplatform/host
+DEPFLAGS := -MMD -MP
+CXXFLAGS := -std=c++17 -O2 -Wall -Wextra -Icore -Iplatform/host $(DEPFLAGS)
 LDFLAGS :=
 
 COMMON_SRCS := \
@@ -32,6 +33,11 @@ COMMON_OBJS := $(patsubst %.cpp,build/host/%.o,$(COMMON_SRCS))
 TEST_OBJS := build/host/tests/test_main.o
 HTTP_OBJS := build/host/tests/http_host.o
 APP_OBJS := build/host/src/main.o build/host/src/http_api.o
+
+# Every object records the headers it used, so a struct change rebuilds the
+# files that include it.
+-include $(COMMON_OBJS:.o=.d) $(TEST_OBJS:.o=.d) $(HTTP_OBJS:.o=.d) \
+         $(APP_OBJS:.o=.d)
 
 .PHONY: all host test clean app
 

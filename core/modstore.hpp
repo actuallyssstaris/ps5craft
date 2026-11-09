@@ -35,6 +35,8 @@ struct ModProject {
     std::string description;
     std::string icon_url;
     std::string project_type; /* mod | plugin | datapack */
+    std::string client_side;  /* required | optional | unsupported */
+    std::string server_side;  /* required | optional | unsupported */
     std::uint64_t downloads = 0;
     std::vector<std::string> loaders;
     std::vector<std::string> game_versions;
