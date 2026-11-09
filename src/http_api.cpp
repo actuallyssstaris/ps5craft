@@ -998,12 +998,38 @@ extern "C" enum MHD_Result api_handler(void *cls, struct MHD_Connection *conn,
 
 namespace {
 
+/* Ask the daemon for one small answer over loopback. A dead answer here while
+   the process still runs means the accept side of MHD stopped, not the
+   network. */
+bool http_self_check(int port) {
+    int fd = socket(AF_INET, SOCK_STREAM, 0);
+    if (fd < 0) return false;
+    struct timeval tv {};
+    tv.tv_sec = 2;
+    setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof tv);
+    struct sockaddr_in addr {};
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(static_cast<uint16_t>(port));
+    addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+    bool ok = false;
+    if (connect(fd, reinterpret_cast<struct sockaddr *>(&addr), sizeof addr) == 0) {
+        const char *req = "GET /api/status HTTP/1.0\r\nHost: localhost\r\n\r\n";
+        if (send(fd, req, std::strlen(req), 0) > 0) {
+            char buf[32];
+            ok = recv(fd, buf, sizeof buf, 0) > 0;
+        }
+    }
+    close(fd);
+    return ok;
+}
+
 /* Temporary watchdog: a line every few seconds shows the process is still
    scheduled even when a request gets no answer. */
-void http_watchdog() {
+void http_watchdog(int port) {
     for (;;) {
         std::this_thread::sleep_for(std::chrono::seconds(5));
-        ps5craft::trace("[http] tick\n");
+        ps5craft::trace("[http] tick self-check=%s\n",
+                        http_self_check(port) ? "ok" : "dead");
     }
 }
 
@@ -1021,7 +1047,7 @@ int http_api_start(int port, void *backend) {
         MHD_OPTION_END);
     if (g_daemon) {
         ps5craft::trace("[http] one thread on :%d\n", port);
-        std::thread(http_watchdog).detach();
+        std::thread(http_watchdog, port).detach();
         return 0;
     }
     ps5craft::trace("[http] start failed on :%d, retrying with poll\n", port);
