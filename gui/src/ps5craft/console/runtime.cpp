@@ -5,6 +5,7 @@
 
 #include "ps5craft/core/fs.hpp"
 #include "ps5craft/core/http_client.hpp"
+#include "ps5craft/core/storage.hpp"
 
 #include <cstdio>
 #include <cstdlib>
@@ -41,9 +42,42 @@ std::string choose_data_root()
     if (const char *env = std::getenv("PS5CRAFT_DATA_ROOT"); env && *env)
         candidates.push_back(env);
 #if defined(__PROSPERO__)
-    // /download0 is the conventional per-title data mount, but it is not
-    // present on every loader. Fall back to the title folder itself, then to
-    // the volatile app temp mount.
+    // The root picked in the dashboard last time, if the volume is still
+    // mounted.
+    const std::string saved = storage_saved_root();
+    if (!saved.empty())
+        candidates.push_back(saved);
+
+    // ShadowMountPlus maps the host /data into the title as a writable nullfs,
+    // so this is the real data partition and the file manager sees the same
+    // files. On a title without it /data is a private sandbox folder, and the
+    // write probe below falls through to a mounted volume or the title folder.
+    candidates.push_back("/data/ps5craft");
+
+    // A volume only gets a PS5Craft folder if the user already made one. When
+    // /data is unusable, creating it on the first writable volume is the
+    // remaining option.
+    bool have_volume_root = false;
+    for (const auto &volume : storage_volumes())
+    {
+        if (!volume.present || !volume.writable || volume.path == "/data")
+            continue;
+        const std::string root = volume.path + "/ps5craft";
+        if (fs_is_dir(root))
+        {
+            candidates.push_back(root);
+            have_volume_root = true;
+        }
+    }
+    if (!have_volume_root)
+    {
+        for (const auto &volume : storage_volumes())
+        {
+            if (volume.present && volume.writable && volume.path != "/data")
+                candidates.push_back(volume.path + "/ps5craft");
+        }
+    }
+
     candidates.push_back("/download0/PS5Craft");
     candidates.push_back("/data/homebrew/PPSA90104/data");
     candidates.push_back("/app_temp0/ps5craft");

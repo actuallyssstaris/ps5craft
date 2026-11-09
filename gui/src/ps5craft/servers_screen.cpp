@@ -4,6 +4,7 @@
 #include "ps5craft/servers_screen.hpp"
 
 #include "audio/cues.hpp"
+#include "ps5craft/brand.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -23,20 +24,25 @@ using hui::ui::text;
 
 // ---- the design language --------------------------------------------------
 
-const Color kInk = Color::rgb(0xf4f1ff);
-const Color kDim = Color::rgb(0xb8b0d1);
-const Color kFaint = Color::rgb(0x8c87a8);
-const Color kAccent = Color::rgb(0xbaa6ff);
-const Color kAccentDeep = Color::rgb(0x8c6bff);
-const Color kOk = Color::rgb(0x5cf2a0);
-const Color kWarn = Color::rgb(0xffcf7a);
-const Color kBad = Color::rgb(0xff6b6b);
-const Color kPanelTop = Color::rgb(0x171735);
-const Color kPanelLow = Color::rgb(0x0b0b1e);
-const Color kRowTop = Color::rgb(0x14142c);
-const Color kRowLow = Color::rgb(0x0c0c20);
-const Color kLine = Color::rgb(0xffffff, 0.08f);
-const Color kClear = Color::rgb(0x000000, 0.0f);
+// Palette and logo mark live in brand.hpp so every screen matches the icon.
+using ps5craft::brand::kAccent;
+using ps5craft::brand::kAccentDeep;
+using ps5craft::brand::kBad;
+using ps5craft::brand::kBackLow;
+using ps5craft::brand::kBackTop;
+using ps5craft::brand::kClear;
+using ps5craft::brand::kDim;
+using ps5craft::brand::kFaint;
+using ps5craft::brand::kFocusLow;
+using ps5craft::brand::kFocusTop;
+using ps5craft::brand::kInk;
+using ps5craft::brand::kLine;
+using ps5craft::brand::kOk;
+using ps5craft::brand::kPanelLow;
+using ps5craft::brand::kPanelTop;
+using ps5craft::brand::kRowLow;
+using ps5craft::brand::kRowTop;
+using ps5craft::brand::kWarn;
 
 constexpr float kMargin = 96.0f;
 constexpr float kListX = kMargin;
@@ -281,15 +287,15 @@ Request ServersScreen::take_request()
 void ServersScreen::draw(hui::gfx::DrawList &scene, hui::gfx::BackdropSpec &backdrop) const
 {
     backdrop.mode = hui::gfx::BackdropMode::gradient;
-    backdrop.colors[0] = Color::rgb(0x08091a);
-    backdrop.colors[1] = Color::rgb(0x030307);
-    backdrop.colors[2] = Color::rgb(0x8c6bff);
-    backdrop.params[0] = 0.18f;
-    backdrop.params[1] = 0.12f;
-    backdrop.params[2] = 0.22f;
+    backdrop.colors[0] = kBackTop;
+    backdrop.colors[1] = kBackLow;
+    backdrop.colors[2] = kAccentDeep;
+    backdrop.params[0] = 0.10f;
+    backdrop.params[1] = 0.06f;
+    backdrop.params[2] = 0.13f;
     backdrop.time = time_;
 
-    label(scene, fonts_.semibold, "PS5CRAFT", kMargin, kHeaderLabelY, kAccent);
+    brand::draw_header(scene, fonts_.semibold, kMargin, kHeaderLabelY, kAccent);
     text(scene, fonts_.display, "Servers", kMargin, kHeaderTitleY, 64.0f, kInk);
 
     int running_count = 0;
@@ -334,7 +340,7 @@ void ServersScreen::draw(hui::gfx::DrawList &scene, hui::gfx::BackdropSpec &back
 
         if (focused)
         {
-            scene.gradient_rect(rect, kRowRadius, Color::rgb(0x262452), Color::rgb(0x171735));
+            scene.gradient_rect(rect, kRowRadius, kFocusTop, kFocusLow);
             scene.bordered_rect(rect, kRowRadius, kClear, 1.5f, kAccent.with_alpha(0.55f));
             scene.rounded_rect({rect.x, rect.y + 22.0f, 4.0f, rect.h - 44.0f}, 2.0f, kAccent);
         }
@@ -420,6 +426,16 @@ void ServersScreen::draw(hui::gfx::DrawList &scene, hui::gfx::BackdropSpec &back
     text(scene, fonts_.regular, "Files, backups and installs are on the dashboard.",
          panel.x + 40.0f, panel.y + panel.h - 176.0f, 19.0f, kFaint);
 
+    if (!row.exit_reason.empty())
+    {
+        label(scene, fonts_.semibold, "Stopped because", panel.x + 40.0f,
+              panel.y + 540.0f, kFaint);
+        const std::string reason =
+            fit(fonts_.regular, row.exit_reason, 19.0f, panel.w - 80.0f);
+        text(scene, fonts_.regular, reason, panel.x + 40.0f, panel.y + 576.0f, 19.0f,
+             kBad);
+    }
+
     // The one action the player can take here, spelled out.
     const bool is_active = active(row.state);
     const bool is_busy = busy(row.state);
@@ -434,9 +450,11 @@ void ServersScreen::draw(hui::gfx::DrawList &scene, hui::gfx::BackdropSpec &back
     // ---- the footer -------------------------------------------------------
 
     text(scene, fonts_.regular, "D-pad  Move", kMargin, kFooterY, 20.0f, kFaint);
-    text(scene, fonts_.regular, "Cross  Start / stop", kMargin + 190.0f, kFooterY, 20.0f, kFaint);
-    text(scene, fonts_.regular, "L1 / R1  Page", kMargin + 460.0f, kFooterY, 20.0f, kFaint);
-    text(scene, fonts_.regular, "Dashboard  :8080", kListX + kListW, kFooterY, 20.0f, kFaint,
+    text(scene, fonts_.regular, "Cross  Start / stop", kMargin + 200.0f, kFooterY, 20.0f, kFaint);
+    text(scene, fonts_.regular, "Square  Logs", kMargin + 480.0f, kFooterY, 20.0f, kFaint);
+    text(scene, fonts_.regular, "Triangle  Install", kMargin + 660.0f, kFooterY, 20.0f, kFaint);
+    text(scene, fonts_.regular, "L1 / R1  Page", kMargin + 880.0f, kFooterY, 20.0f, kFaint);
+    text(scene, fonts_.regular, "Dashboard  :8080", kPanelX + kPanelW, kFooterY, 20.0f, kFaint,
          Align::right);
 }
 

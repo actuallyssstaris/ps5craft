@@ -18,6 +18,7 @@ std::vector<screen::ServerRow> rows_from_backend(const Backend &backend)
         row.version = snapshot["version"].as_string();
         row.state = snapshot["state"].as_string();
         row.last_log = snapshot["last_log"].as_string();
+        row.exit_reason = snapshot["exit_reason"].as_string();
         row.memory_max_mib = snapshot["memory_max_mib"].as_int();
         row.uptime_ms = static_cast<std::uint64_t>(snapshot["uptime_ms"].as_number());
         rows.push_back(std::move(row));

@@ -57,6 +57,7 @@ values += [
     str(sdk / "target/lib/libunwind.a"),
     "--wrap=pthread_create",
     "--wrap=pthread_join",
+    "--wrap=fcntl",
     "--defsym=__cxa_thread_atexit_impl=0",
     "--defsym=collector_func_load=0",
     "--defsym=kernel_mprotect=0",

@@ -30,6 +30,7 @@ struct ServerRow
     std::string version;
     std::string state; // stopped | starting | running | stopping | crashed | error
     std::string last_log;
+    std::string exit_reason;
     std::int64_t memory_max_mib = 0;
     std::uint64_t uptime_ms = 0;
 };
