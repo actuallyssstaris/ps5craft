@@ -4,6 +4,7 @@
 #include <cerrno>
 #include <csignal>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <fcntl.h>
 #include <spawn.h>
@@ -88,7 +89,15 @@ std::size_t LogRing::capacity() const { return max_bytes_; }
 
 namespace {
 
+/* Set PS5CRAFT_SPAWN_TRACE=1 to see how far a failed spawn got. The console
+   libc has no exec, so a broken spawn is otherwise silent. */
+bool spawn_trace_on() {
+    static const bool on = std::getenv("PS5CRAFT_SPAWN_TRACE") != nullptr;
+    return on;
+}
+
 void spawn_trace(const char *step, const std::string &detail = {}) {
+    if (!spawn_trace_on()) return;
     if (detail.empty())
         std::fprintf(stderr, "[spawn] %s\n", step);
     else
@@ -136,9 +145,9 @@ int process_spawn(const std::vector<std::string> &argv,
 
     /* The PS5 libc exports posix_spawn to titles but not fork(): calling fork
        jumps through a null symbol. posix_spawn creates the process and applies
-       the descriptor actions before the child runs. There is no portable
-       chdir action, so callers must pass absolute paths; the server passes an
-       absolute jar and absolute -Duser.dir/-Djava.io.tmpdir values. */
+       the descriptor actions before the child runs. The server still passes
+       absolute paths, but the loader resolves some of its own files against
+       the real working directory, so the child gets the instance folder. */
     (void)cwd;
 
     posix_spawn_file_actions_t actions;
@@ -154,6 +163,12 @@ int process_spawn(const std::vector<std::string> &argv,
     posix_spawn_file_actions_adddup2(&actions, in_pipe[0], STDIN_FILENO);
     posix_spawn_file_actions_addclose(&actions, out_pipe[0]);
     posix_spawn_file_actions_addclose(&actions, in_pipe[1]);
+#if defined(__GLIBC__) && (__GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ >= 29))
+    /* glibc 2.29 added the chdir action. Fabric looks up its remapped jars
+       through the real working directory, so the loader must start inside the
+       instance folder and not in whatever folder started PS5Craft. */
+    if (!cwd.empty()) posix_spawn_file_actions_addchdir_np(&actions, cwd.c_str());
+#endif
 
     pid_t pid = -1;
     spawn_trace("calling posix_spawn");

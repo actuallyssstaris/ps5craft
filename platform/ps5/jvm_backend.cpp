@@ -266,6 +266,7 @@ bool run_server(JNIEnv *env, const std::string &jar,
 
 struct Launch {
     std::string jar;
+    std::string cwd;
     std::vector<std::string> vm_args;
     std::vector<std::string> server_args;
 };
@@ -318,6 +319,14 @@ bool parse_launch(const std::vector<std::string> &argv, Launch &launch,
 void jvm_thread(Launch *launch) {
     JavaVM *vm = nullptr;
     JNIEnv *env = nullptr;
+
+    /* A title cannot spawn a process with its own working directory, and the
+       loader resolves some of its files against the real one. Only one server
+       runs per title launch, so the whole title sits in the instance folder
+       while it runs. PS5Craft itself only touches absolute paths. */
+    char previous_cwd[1024];
+    const bool moved = !launch->cwd.empty() && getcwd(previous_cwd, sizeof previous_cwd) != nullptr &&
+                       chdir(launch->cwd.c_str()) == 0;
     std::vector<std::string> option_text;
     option_text.reserve(launch->vm_args.size() + 16);
     for (const auto &arg : launch->vm_args) option_text.push_back(arg);
@@ -392,6 +401,7 @@ void jvm_thread(Launch *launch) {
     } else {
         set_exited(ok ? 0 : 1, ok ? "exit 0" : "server main failed");
     }
+    if (moved) chdir(previous_cwd);
     delete launch;
 }
 
@@ -448,7 +458,6 @@ bool jvm_backend_owns(int pid) { return pid == kEmbeddedPid; }
 
 int jvm_backend_spawn(const std::vector<std::string> &argv, const std::string &cwd,
                       ProcessResult &result) {
-    (void)cwd;
     {
         std::lock_guard<std::mutex> lock(g_mutex);
         if (g_state != State::kIdle) {
@@ -464,6 +473,7 @@ int jvm_backend_spawn(const std::vector<std::string> &argv, const std::string &c
         delete launch;
         return -1;
     }
+    launch->cwd = cwd;
     if (access(launch->jar.c_str(), R_OK) != 0) {
         result.reason = "server jar not readable: " + launch->jar;
         delete launch;
