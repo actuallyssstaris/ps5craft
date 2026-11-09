@@ -23,6 +23,9 @@ COMMON_SRCS := \
   core/instance.cpp \
   core/server.cpp \
   core/backend.cpp \
+  core/modstore.cpp \
+  core/storage.cpp \
+  core/trace.cpp \
   platform/process_host.cpp
 
 COMMON_OBJS := $(patsubst %.cpp,build/host/%.o,$(COMMON_SRCS))

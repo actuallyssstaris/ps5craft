@@ -6,6 +6,7 @@
 #include <cstdio>
 #include <ctime>
 #include <sstream>
+#include <time.h>
 
 #include "catalog.hpp"
 #include "hash.hpp"
@@ -15,12 +16,37 @@
 namespace ps5craft {
 
 namespace {
+/* UTC timestamp without gmtime()/strftime(): the console libc keeps the
+   broken-down time in a shared static buffer, and a slow or contended call
+   there would stall whichever request holds the backend lock. */
 std::string now_iso() {
-    std::time_t t = std::time(nullptr);
-    std::tm tm {};
-    gmtime_r(&t, &tm);
+    struct timespec ts {};
+    if (clock_gettime(CLOCK_REALTIME, &ts) != 0) return std::string();
+    std::int64_t seconds = ts.tv_sec;
+    std::int64_t days = seconds / 86400;
+    std::int64_t rem = seconds % 86400;
+    if (rem < 0) {
+        rem += 86400;
+        --days;
+    }
+    const std::int64_t z = days + 719468;
+    const std::int64_t era = (z >= 0 ? z : z - 146096) / 146097;
+    const std::int64_t doe = z - era * 146097;
+    const std::int64_t yoe =
+        (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365;
+    std::int64_t year = yoe + era * 400;
+    const std::int64_t doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    const std::int64_t mp = (5 * doy + 2) / 153;
+    const std::int64_t day = doy - (153 * mp + 2) / 5 + 1;
+    const std::int64_t month = mp + (mp < 10 ? 3 : -9);
+    year += (month <= 2);
     char buf[32];
-    std::strftime(buf, sizeof buf, "%Y-%m-%dT%H:%M:%SZ", &tm);
+    std::snprintf(buf, sizeof buf, "%04lld-%02lld-%02lldT%02lld:%02lld:%02lldZ",
+                  static_cast<long long>(year), static_cast<long long>(month),
+                  static_cast<long long>(day),
+                  static_cast<long long>(rem / 3600),
+                  static_cast<long long>((rem / 60) % 60),
+                  static_cast<long long>(rem % 60));
     return buf;
 }
 
@@ -46,11 +72,16 @@ Backend::Backend(std::string data_root)
 
 Backend::~Backend() {
     std::vector<std::shared_ptr<InstallJob>> jobs;
+    std::vector<std::shared_ptr<ModJob>> mod_jobs;
     {
         std::lock_guard<std::mutex> lock(mutex_);
         for (auto &kv : installs_) jobs.push_back(kv.second);
+        for (auto &kv : mod_installs_) mod_jobs.push_back(kv.second);
     }
     for (auto &job : jobs) {
+        if (job->thread.joinable()) job->thread.join();
+    }
+    for (auto &job : mod_jobs) {
         if (job->thread.joinable()) job->thread.join();
     }
 }
@@ -326,21 +357,242 @@ Json Backend::install_status(const std::string &id) const {
     return out;
 }
 
-std::uint64_t Backend::instance_disk_bytes(const std::string &id) {
+std::string Backend::mod_install_start(const std::string &id, ModSource source,
+                                       const std::string &project,
+                                       const std::string &version_id) {
     std::lock_guard<std::mutex> lock(mutex_);
-    if (!instances_.count(id)) return 0;
+    auto it = instances_.find(id);
+    if (it == instances_.end()) return "unknown instance";
+
+    const InstanceState state = it->second->state();
+    if (state == InstanceState::kRunning || state == InstanceState::kStarting ||
+        state == InstanceState::kStopping) {
+        return "stop the server before adding content";
+    }
+    if (std::string(mod_content_dir(it->second->config().software)).empty())
+        return "this server software takes no content";
+
+    auto existing = mod_installs_.find(id);
+    if (existing != mod_installs_.end() && !existing->second->done.load())
+        return "a content download is already running for this instance";
+
+    auto job = std::make_shared<ModJob>();
+    job->project = project;
+    job->version = version_id;
+    mod_installs_[id] = job;
+    job->thread = std::thread([this, id, job, source, project, version_id]() {
+        run_mod_install(id, job, source, project, version_id);
+    });
+    return std::string();
+}
+
+void Backend::run_mod_install(const std::string &id,
+                              const std::shared_ptr<ModJob> &job, ModSource source,
+                              const std::string &project,
+                              const std::string &version_id) {
+    auto fail = [&job](const std::string &why) {
+        job->error = why;
+        job->failed = true;
+        job->done = true;
+    };
+
+    std::string software;
+    std::string game_version;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        auto it = instances_.find(id);
+        if (it == instances_.end()) {
+            fail("instance was removed during the download");
+            return;
+        }
+        software = it->second->config().software;
+        game_version = it->second->config().version;
+    }
+
+    const std::string dir = mod_content_dir(software);
+    if (dir.empty()) {
+        fail("this server software takes no content");
+        return;
+    }
+
+    ModFile file;
+    std::string error;
+    if (!mod_resolve(source, project, version_id, software, game_version, file,
+                     error)) {
+        fail(error);
+        return;
+    }
+
+    const std::string name = file.file_name;
+    if (name.empty() || name == "." || name == ".." ||
+        name.find('/') != std::string::npos ||
+        name.find('\\') != std::string::npos) {
+        fail("the store returned an unsafe file name");
+        return;
+    }
+
+    job->version = file.version_id;
+    job->file_name = name;
+    if (file.size > 0) job->total = file.size;
+
+    const std::string relative_dir = "instances/" + id + "/" + dir;
+    if (!sandbox_.mkdirs(relative_dir)) {
+        fail("cannot create the content folder");
+        return;
+    }
+    std::string final_path;
+    if (!sandbox_.resolve(relative_dir + "/" + name, final_path)) {
+        fail("invalid content path");
+        return;
+    }
+    const std::string part_path = final_path + ".part";
+
+    const bool downloaded = http_download(
+        file.url, part_path,
+        [&job](std::uint64_t received, std::uint64_t total) {
+            job->received = received;
+            if (total > 0) job->total = total;
+            return true;
+        },
+        error, 1800);
+    if (!downloaded) {
+        std::remove(part_path.c_str());
+        fail(error);
+        return;
+    }
+
+    /* Verify against the publisher's hash. Modrinth publishes SHA-1 and
+       SHA-512; Hangar publishes SHA-256. A source without a hash is refused
+       rather than installed unchecked. */
+    std::string expected;
+    std::string actual;
+    bool have_expected = false;
+    if (!file.sha1.empty()) {
+        expected = file.sha1;
+        have_expected = sha1_file_hex(part_path, actual);
+    } else if (!file.sha256.empty()) {
+        expected = file.sha256;
+        have_expected = sha256_file_hex(part_path, actual);
+    }
+    for (char &c : expected)
+        c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    for (char &c : actual)
+        c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    if (!have_expected) {
+        std::remove(part_path.c_str());
+        fail("the store published no checksum for this file");
+        return;
+    }
+    if (expected != actual) {
+        std::remove(part_path.c_str());
+        fail("checksum mismatch: expected " + expected + ", got " + actual);
+        return;
+    }
+
+    std::remove(final_path.c_str());
+    if (std::rename(part_path.c_str(), final_path.c_str()) != 0) {
+        std::remove(part_path.c_str());
+        fail("cannot move the downloaded file into place");
+        return;
+    }
+
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        disk_cache_.erase(id);
+    }
+    job->done = true;
+}
+
+Json Backend::mod_install_status(const std::string &id) const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    Json out = Json::object();
+    auto it = mod_installs_.find(id);
+    if (it == mod_installs_.end()) {
+        out.set("active", false);
+        out.set("done", false);
+        out.set("failed", false);
+        return out;
+    }
+    const auto &job = it->second;
+    const bool done = job->done.load();
+    out.set("active", !done);
+    out.set("done", done);
+    out.set("failed", job->failed.load());
+    out.set("project", job->project);
+    out.set("version", job->version);
+    out.set("file_name", job->file_name);
+    out.set("received", static_cast<std::int64_t>(job->received.load()));
+    out.set("total", static_cast<std::int64_t>(job->total.load()));
+    out.set("error", job->error);
+    return out;
+}
+
+Json Backend::mods_list(const std::string &id) const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    Json out = Json::object();
+    auto it = instances_.find(id);
+    if (it == instances_.end()) {
+        out.set("error", "not found");
+        return out;
+    }
+    const std::string dir = mod_content_dir(it->second->config().software);
+    out.set("dir", dir);
+    Json files = Json::array();
+    std::vector<FileEntry> entries;
+    if (!dir.empty() && sandbox_.list("instances/" + id + "/" + dir, entries)) {
+        for (const FileEntry &entry : entries) {
+            if (entry.directory) continue;
+            Json item = Json::object();
+            item.set("name", entry.name);
+            item.set("size", static_cast<double>(entry.size));
+            item.set("modified", static_cast<double>(entry.modified));
+            files.push(item);
+        }
+    }
+    out.set("files", files);
+    return out;
+}
+
+bool Backend::mod_remove(const std::string &id, const std::string &name) {
+    if (name.empty() || name == "." || name == ".." ||
+        name.find('/') != std::string::npos ||
+        name.find('\\') != std::string::npos)
+        return false;
+    std::lock_guard<std::mutex> lock(mutex_);
+    auto it = instances_.find(id);
+    if (it == instances_.end()) return false;
+    const std::string dir = mod_content_dir(it->second->config().software);
+    if (dir.empty()) return false;
+    return sandbox_.remove("instances/" + id + "/" + dir + "/" + name);
+}
+
+std::uint64_t Backend::instance_disk_bytes(const std::string &id) {
     const std::int64_t now = static_cast<std::int64_t>(std::time(nullptr));
-    auto cached = disk_cache_.find(id);
-    if (cached != disk_cache_.end() && now - cached->second.first < 30)
-        return cached->second.second;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        if (!instances_.count(id)) return 0;
+        auto cached = disk_cache_.find(id);
+        if (cached != disk_cache_.end() && now - cached->second.first < 30)
+            return cached->second.second;
+    }
+    /* Walking a large world must not hold the registry lock: the dashboard
+       would freeze for every other request while it runs. */
     const std::uint64_t bytes = sandbox_.tree_size("instances/" + id);
-    disk_cache_[id] = {now, bytes};
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        disk_cache_[id] = {now, bytes};
+    }
     return bytes;
 }
 
 Json Backend::monitor_snapshot() {
-    std::lock_guard<std::mutex> lock(mutex_);
-    MonitorSnapshot m = ps5craft::monitor_sample(&prev_cpu_);
+    /* Sampling reads /proc and opens a UDP socket. Keep it outside the
+       registry lock so a slow probe cannot stall status or lifecycle calls. */
+    MonitorSnapshot m;
+    {
+        std::lock_guard<std::mutex> lock(monitor_mutex_);
+        m = ps5craft::monitor_sample(&prev_cpu_);
+    }
     Json out = Json::object();
 
     /* Process (this title) — measured from /proc, absent if unreadable. */
@@ -454,6 +706,7 @@ bool Backend::instance_command(const std::string &id,
 }
 
 Json Backend::status_snapshot() const {
+    const std::string stamp = now_iso();
     std::lock_guard<std::mutex> lock(mutex_);
     Json root = Json::object();
     Json instances = Json::array();
@@ -463,7 +716,7 @@ Json Backend::status_snapshot() const {
     }
     root.set("instances", instances);
     root.set("count", static_cast<double>(instances.items().size()));
-    root.set("time", now_iso());
+    root.set("time", stamp);
     return root;
 }
 

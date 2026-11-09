@@ -74,6 +74,21 @@ int pipe2(int fd[2], int flags) {
     return 0;
 }
 
+/* The PS5 libc rejects F_SETFD/F_GETFD with EINVAL. There is no exec on the
+   console, so close-on-exec flags have no effect; libcurl treats the error as
+   fatal. The console link wraps fcntl so only these two commands are
+   emulated and everything else reaches the real function. */
+#include <stdarg.h>
+extern "C" int __real_fcntl(int fd, int cmd, ...);
+extern "C" int __wrap_fcntl(int fd, int cmd, ...) {
+    va_list ap;
+    va_start(ap, cmd);
+    long arg = va_arg(ap, long);
+    va_end(ap);
+    if (cmd == F_SETFD || cmd == F_GETFD) return 0;
+    return __real_fcntl(fd, cmd, arg);
+}
+
 /* PS5 libc provides gmtime but not gmtime_r. Provide a minimal shim. */
 #include <time.h>
 struct tm *gmtime_r(const time_t *timep, struct tm *result) {

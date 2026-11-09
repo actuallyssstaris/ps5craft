@@ -46,6 +46,11 @@ bool fs_mkdirs(const std::string &path) {
     return stat(path.c_str(), &info) == 0 && S_ISDIR(info.st_mode);
 }
 
+bool fs_is_dir(const std::string &path) {
+    struct stat info {};
+    return stat(path.c_str(), &info) == 0 && S_ISDIR(info.st_mode);
+}
+
 bool fs_read_file(const std::string &path, std::string &out) {
     int fd = open(path.c_str(), O_RDONLY);
     if (fd < 0) return false;

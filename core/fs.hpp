@@ -52,6 +52,7 @@ struct DiskSpace {
 bool fs_disk_space(const std::string &path, DiskSpace &out);
 
 bool fs_mkdirs(const std::string &path);
+bool fs_is_dir(const std::string &path);
 bool fs_remove_tree(const std::string &path);
 bool fs_read_file(const std::string &path, std::string &out);
 bool fs_write_file(const std::string &path, const std::string &data);

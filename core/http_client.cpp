@@ -8,6 +8,8 @@
 #include <cstring>
 #include <unistd.h>
 
+#include "trace.hpp"
+
 namespace ps5craft {
 namespace {
 
@@ -61,7 +63,12 @@ std::string user_agent() {
 
 /* libcurl is global-stateful; init once. */
 bool curl_ready() {
-    static const bool ok = curl_global_init(CURL_GLOBAL_DEFAULT) == CURLE_OK;
+    static const bool ok = [] {
+        ps5craft::trace("[curl] global init start\n");
+        const bool result = curl_global_init(CURL_GLOBAL_DEFAULT) == CURLE_OK;
+        ps5craft::trace("[curl] global init done ok=%d\n", result ? 1 : 0);
+        return result;
+    }();
     return ok;
 }
 
@@ -131,11 +138,14 @@ bool http_get(const std::string &url, std::string &out, std::string &error,
     curl_easy_cleanup(h);
 
     if (rc != CURLE_OK) {
+        ps5craft::trace("[curl] get failed %s rc=%d\n", url.c_str(),
+                        static_cast<int>(rc));
         error = buf.overflow ? "response larger than the allowed limit"
                              : curl_error(rc, errbuf);
         return false;
     }
     if (status < 200 || status >= 300) {
+        ps5craft::trace("[curl] get failed %s status=%ld\n", url.c_str(), status);
         error = "HTTP " + std::to_string(status);
         return false;
     }
@@ -189,10 +199,14 @@ bool http_download(const std::string &url, const std::string &path,
         return false;
     }
     if (rc != CURLE_OK) {
+        ps5craft::trace("[curl] download failed %s rc=%d\n", url.c_str(),
+                        static_cast<int>(rc));
         error = curl_error(rc, errbuf);
         return false;
     }
     if (status < 200 || status >= 300) {
+        ps5craft::trace("[curl] download failed %s status=%ld\n", url.c_str(),
+                        status);
         error = "HTTP " + std::to_string(status);
         return false;
     }

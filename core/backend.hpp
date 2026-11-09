@@ -14,6 +14,7 @@
 #include "json.hpp"
 #include "fs.hpp"
 #include "backup.hpp"
+#include "modstore.hpp"
 #include "../platform/process.hpp"
 #include "../core/monitor.hpp"
 
@@ -81,6 +82,15 @@ public:
                               const std::string &version);
     Json install_status(const std::string &id) const;
 
+    /* Content from the public mod stores. Files land in the directory the
+       server software reads: mods/, plugins/ or world/datapacks/. */
+    std::string mod_install_start(const std::string &id, ModSource source,
+                                  const std::string &project,
+                                  const std::string &version_id);
+    Json mod_install_status(const std::string &id) const;
+    Json mods_list(const std::string &id) const;
+    bool mod_remove(const std::string &id, const std::string &name);
+
     Sandbox &sandbox() { return sandbox_; }
     const Sandbox &sandbox() const { return sandbox_; }
 
@@ -101,17 +111,36 @@ private:
                      const std::shared_ptr<InstallJob> &job,
                      const std::string &software, const std::string &version);
 
+    struct ModJob {
+        std::thread thread;
+        std::atomic<bool> done{false};
+        std::atomic<bool> failed{false};
+        std::atomic<std::uint64_t> received{0};
+        std::atomic<std::uint64_t> total{0};
+        std::string project;
+        std::string version;
+        std::string file_name;
+        std::string error;
+    };
+    /* Worker thread: resolve the store version, download, verify, rename. */
+    void run_mod_install(const std::string &id,
+                         const std::shared_ptr<ModJob> &job, ModSource source,
+                         const std::string &project,
+                         const std::string &version_id);
+
     Sandbox sandbox_;
     BackupManager backup_mgr_;
     mutable std::mutex mutex_;
     std::unordered_map<std::string, std::unique_ptr<Instance>> instances_;
     std::unordered_map<std::string, std::shared_ptr<InstallJob>> installs_;
+    std::unordered_map<std::string, std::shared_ptr<ModJob>> mod_installs_;
     std::vector<std::string> order_; /* creation order */
     /* Directory size is expensive on big worlds; cache it briefly. */
     std::unordered_map<std::string, std::pair<std::int64_t, std::uint64_t>> disk_cache_;
 
     /* CPU baseline sample for computing process percent between polls. */
     CpuSample prev_cpu_;
+    mutable std::mutex monitor_mutex_;
 
     /* Registry persistence: <root>/instances.json. Caller holds mutex_. */
     void load_registry();
