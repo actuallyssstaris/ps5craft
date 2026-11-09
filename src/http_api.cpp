@@ -206,6 +206,11 @@ extern "C" enum MHD_Result api_handler(void *cls, struct MHD_Connection *conn,
             if (found) break;
             found = ps5craft::fs_read_file(std::string(dir) + "/index.html", html);
         }
+        /* A build run as a payload has no /app0, so the data root keeps a
+           copy of the page as well. */
+        if (!found && g_backend)
+            found = ps5craft::fs_read_file(
+                g_backend->data_root() + "/web/index.html", html);
         if (found) {
             struct MHD_Response *resp =
                 MHD_create_response_from_buffer(html.size(), (void *)html.data(),
@@ -1006,22 +1011,22 @@ void http_watchdog() {
 
 int http_api_start(int port, void *backend) {
     g_backend = static_cast<ps5craft::Backend *>(backend);
-    /* Catalog downloads and installs can take seconds. A single MHD thread
-       would stall the dashboard and every other request while they run, so
-       give each connection its own handler. Fall back to the single-thread
-       daemon when the console build lacks thread-per-connection support. */
+    /* One polling thread. The console build stops accepting connections
+       after the first request when MHD spawns a thread per connection, so the
+       daemon stays single-threaded here; slow routes run their work in the
+       backend instead of in this loop. */
     g_daemon = MHD_start_daemon(
-        MHD_USE_INTERNAL_POLLING_THREAD | MHD_USE_THREAD_PER_CONNECTION, port,
-        nullptr, nullptr, &api_handler, nullptr, MHD_OPTION_NOTIFY_COMPLETED,
-        &request_completed, nullptr, MHD_OPTION_END);
+        MHD_USE_INTERNAL_POLLING_THREAD, port, nullptr, nullptr, &api_handler,
+        nullptr, MHD_OPTION_NOTIFY_COMPLETED, &request_completed, nullptr,
+        MHD_OPTION_END);
     if (g_daemon) {
-        ps5craft::trace("[http] thread-per-connection on :%d\n", port);
+        ps5craft::trace("[http] one thread on :%d\n", port);
         std::thread(http_watchdog).detach();
         return 0;
     }
-    ps5craft::trace("[http] thread-per-connection failed, using one thread\n");
+    ps5craft::trace("[http] start failed on :%d, retrying with poll\n", port);
     g_daemon = MHD_start_daemon(
-        MHD_USE_INTERNAL_POLLING_THREAD, port, nullptr, nullptr,
+        MHD_USE_INTERNAL_POLLING_THREAD | MHD_USE_POLL, port, nullptr, nullptr,
         &api_handler, nullptr, MHD_OPTION_NOTIFY_COMPLETED,
         &request_completed, nullptr, MHD_OPTION_END);
     if (!g_daemon) {
