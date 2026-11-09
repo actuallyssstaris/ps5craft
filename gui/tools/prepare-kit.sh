@@ -67,6 +67,10 @@ else
     if [[ -f $repo/assets/ca-bundle.crt ]]; then
         cp -f -- "$repo/assets/ca-bundle.crt" "$kit/assets/ca-bundle.crt"
     fi
+    # The title serves the dashboard itself from /app0/assets/web, so the
+    # page has to travel inside the app folder. It is one self-contained file.
+    rm -rf -- "$kit/assets/web"
+    cp -a -- "$repo/web" "$kit/assets/web"
     # The console title carries the Java runtime; the kit copies assets/ into
     # the app folder, so the boot image belongs there too.
     runtime=${PS5CRAFT_JVM_RUNTIME:-$kit/.deps/jvm}
