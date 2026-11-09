@@ -11,10 +11,12 @@
 #include <unistd.h>
 
 #include <cerrno>
-#include <cstring>
-#include <cstdlib>
+#include <chrono>
 #include <cstdio>
+#include <cstdlib>
+#include <cstring>
 #include <string>
+#include <thread>
 
 #include "../core/backend.hpp"
 #include "../core/catalog.hpp"
@@ -138,6 +140,10 @@ extern "C" enum MHD_Result api_handler(void *cls, struct MHD_Connection *conn,
                                        size_t *upload_data_size,
                                        void **con_cls) {
     (void)cls; (void)version;
+
+    /* Temporary: proves whether a request reaches the handler while the
+       console test is running. */
+    ps5craft::trace("[http] req %s %s\n", method, url);
 
     if (!g_backend) return MHD_NO;
 
@@ -985,6 +991,19 @@ extern "C" enum MHD_Result api_handler(void *cls, struct MHD_Connection *conn,
     return send_json(conn, MHD_HTTP_NOT_FOUND, err);
 }
 
+namespace {
+
+/* Temporary watchdog: a line every few seconds shows the process is still
+   scheduled even when a request gets no answer. */
+void http_watchdog() {
+    for (;;) {
+        std::this_thread::sleep_for(std::chrono::seconds(5));
+        ps5craft::trace("[http] tick\n");
+    }
+}
+
+} // namespace
+
 int http_api_start(int port, void *backend) {
     g_backend = static_cast<ps5craft::Backend *>(backend);
     /* Catalog downloads and installs can take seconds. A single MHD thread
@@ -997,6 +1016,7 @@ int http_api_start(int port, void *backend) {
         &request_completed, nullptr, MHD_OPTION_END);
     if (g_daemon) {
         ps5craft::trace("[http] thread-per-connection on :%d\n", port);
+        std::thread(http_watchdog).detach();
         return 0;
     }
     ps5craft::trace("[http] thread-per-connection failed, using one thread\n");
