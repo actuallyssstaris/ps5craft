@@ -72,9 +72,11 @@ static std::string choose_data_root() {
     if (const char *env = std::getenv("PS5CRAFT_DATA_ROOT"); env && *env)
         candidates.push_back(env);
 #if defined(__PROSPERO__)
-    /* /download0 is the conventional per-title data mount, but it is not
-       present on every loader. Fall back to the title folder itself, then to
-       the volatile app temp mount. */
+    /* ShadowMountPlus maps the host /data into the title sandbox with a
+       writable nullfs, so the console data partition is the natural root and
+       stays visible to the file manager at the same path. The other entries
+       cover loaders that do not mount /data. */
+    candidates.push_back("/data/ps5craft");
     candidates.push_back("/download0/PS5Craft");
     candidates.push_back("/data/homebrew/PPSA90104/data");
     candidates.push_back("/app_temp0/ps5craft");
