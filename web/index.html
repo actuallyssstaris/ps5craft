@@ -3,27 +3,94 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#0b0b22">
+<meta name="theme-color" content="#f6f8f6">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='9' fill='%23f3f5f4'/%3E%3Crect x='7' y='8' width='26' height='6.4' rx='2.6' fill='%23666e71'/%3E%3Crect x='7' y='16.8' width='26' height='6.4' rx='2.6' fill='%23c7cbca'/%3E%3Crect x='7' y='25.6' width='26' height='6.4' rx='2.6' fill='%232e352e'/%3E%3Ccircle cx='12' cy='20' r='1.5' fill='%23b3d948'/%3E%3Ccircle cx='12' cy='28.8' r='1.5' fill='%23b3d948'/%3E%3C/svg%3E">
+<script>
+  (function () {
+    var saved = null;
+    try { saved = localStorage.getItem("ps5craft-theme"); } catch (e) {}
+    if (saved !== "light" && saved !== "dark")
+      saved = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    document.documentElement.dataset.theme = saved;
+  })();
+</script>
 <title>PS5Craft</title>
 <style>
   :root {
-    --bg-top: #08091a;
-    --bg-mid: #0e0e28;
-    --bg-bottom: #030307;
-    --house: 140, 107, 255;
-    --text: #ffffff;
-    --dim: #b8b0d1;
-    --faint: #8c87a8;
-    --card: rgba(255, 255, 255, 0.055);
-    --card-2: rgba(255, 255, 255, 0.085);
-    --card-line: rgba(255, 255, 255, 0.09);
-    --pill: rgba(255, 255, 255, 0.12);
-    --accent: rgb(186, 166, 255);
-    --ink: #120f29;
-    --ok: #5cf2a0;
-    --warn: #ffcf7a;
-    --bad: #ff6b6b;
+    color-scheme: light;
+    --bg-top: #f6f8f6;
+    --bg-mid: #edf0ed;
+    --bg-bottom: #e3e7e3;
+    --house: 179, 217, 72;
+    --glow-1: .30;
+    --glow-2: .07;
+    --glow-3: .10;
+    --text: #242a23;
+    --dim: #4e564d;
+    --faint: #6f786e;
+    --card: rgba(255, 255, 255, .74);
+    --card-line: rgba(36, 42, 35, .13);
+    --fill: rgba(36, 42, 35, .05);
+    --fill-2: rgba(36, 42, 35, .09);
+    --fill-3: rgba(36, 42, 35, .14);
+    --line-strong: rgba(36, 42, 35, .26);
+    --solid: #2e352e;
+    --solid-text: #f4f7ef;
+    --accent: #567c00;
+    --ink: #f4f7ef;
+    --ok: #4f7d00;
+    --ok-rgb: 79, 125, 0;
+    --warn: #8a6200;
+    --warn-rgb: 138, 98, 0;
+    --bad: #b3362a;
+    --bad-rgb: 179, 54, 42;
+    --bad-text: #8f2a20;
+    --surface-solid: #ffffff;
+    --topbar-bg: rgba(246, 248, 246, .84);
+    --sidebar-bg: rgba(255, 255, 255, .42);
+    --toast-bg: rgba(255, 255, 255, .97);
+    --log-bg: #f2f5f1;
+    --log-text: #3a423a;
+    --shadow-1: 0 10px 30px rgba(36, 42, 35, .12);
+    --shadow-2: 0 30px 90px rgba(36, 42, 35, .22);
     --radius: 18px;
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg-top: #232a22;
+    --bg-mid: #171c16;
+    --bg-bottom: #0d100c;
+    --glow-1: .18;
+    --glow-2: .04;
+    --glow-3: .07;
+    --text: #eef1ec;
+    --dim: #b9c0b6;
+    --faint: #8b938a;
+    --card: rgba(255, 255, 255, .055);
+    --card-line: rgba(255, 255, 255, .10);
+    --fill: rgba(255, 255, 255, .06);
+    --fill-2: rgba(255, 255, 255, .10);
+    --fill-3: rgba(255, 255, 255, .14);
+    --line-strong: rgba(255, 255, 255, .22);
+    --solid: #eef1ec;
+    --solid-text: #171c16;
+    --accent: #b3d948;
+    --ink: #171c16;
+    --ok: #b3d948;
+    --ok-rgb: 179, 217, 72;
+    --warn: #e6c14f;
+    --warn-rgb: 230, 193, 79;
+    --bad: #ff7b6b;
+    --bad-rgb: 255, 123, 107;
+    --bad-text: #ffb3a8;
+    --surface-solid: #1b211a;
+    --topbar-bg: rgba(20, 25, 19, .74);
+    --sidebar-bg: rgba(18, 22, 17, .45);
+    --toast-bg: rgba(27, 33, 26, .97);
+    --log-bg: rgba(0, 0, 0, .35);
+    --log-text: #cfd6cc;
+    --shadow-1: 0 10px 30px rgba(0, 0, 0, .35);
+    --shadow-2: 0 30px 90px rgba(0, 0, 0, .65);
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body { margin: 0; min-height: 100%; }
@@ -37,8 +104,8 @@
   .backdrop {
     position: fixed; inset: 0; z-index: -1; pointer-events: none;
     background:
-      radial-gradient(70vmax 45vmax at 62% -8%, rgba(var(--house), 0.30), rgba(var(--house), 0.07) 48%, transparent 72%),
-      radial-gradient(40vmax 30vmax at 8% 30%, rgba(var(--house), 0.10), transparent 70%),
+      radial-gradient(70vmax 45vmax at 62% -8%, rgba(var(--house), var(--glow-1)), rgba(var(--house), var(--glow-2)) 48%, transparent 72%),
+      radial-gradient(40vmax 30vmax at 8% 30%, rgba(var(--house), var(--glow-3)), transparent 70%),
       linear-gradient(180deg, var(--bg-top) 0%, var(--bg-mid) 46%, var(--bg-bottom) 100%);
   }
   button, input, select, textarea { font: inherit; color: inherit; }
@@ -52,10 +119,13 @@
     display: flex; align-items: center; gap: 14px;
     padding: max(12px, env(safe-area-inset-top)) 20px 12px;
     border-bottom: 1px solid var(--card-line);
-    background: rgba(8, 9, 26, .72);
+    background: var(--topbar-bg);
     backdrop-filter: blur(14px);
     position: sticky; top: 0; z-index: 20;
   }
+  .brand { display: flex; align-items: center; gap: 10px; }
+  .logo { width: 32px; height: 32px; flex: none; display: block; }
+  :root[data-theme="dark"] .logo .logo-bar { stroke: rgba(255, 255, 255, .4); stroke-width: 1; }
   .wordmark { font-size: 22px; font-weight: 700; letter-spacing: .2px; line-height: 1; }
   .wordmark span { color: var(--accent); }
   .clock { color: var(--faint); font-size: 13px; font-variant-numeric: tabular-nums; }
@@ -68,27 +138,28 @@
   /* ---------- buttons ---------- */
   .btn {
     border: 1px solid var(--card-line);
-    background: rgba(255,255,255,.08);
+    background: var(--fill-2);
     color: var(--text);
     border-radius: 999px;
     padding: 9px 16px;
     font-size: 14px; font-weight: 700;
+    white-space: nowrap;
     text-decoration: none;
     display: inline-flex; align-items: center; gap: 7px;
     transition: background .15s, border-color .15s, box-shadow .15s, transform .05s;
   }
-  .btn:hover:not(:disabled) { background: rgba(255,255,255,.13); border-color: rgba(255,255,255,.22); }
+  .btn:hover:not(:disabled) { background: var(--fill-3); border-color: var(--line-strong); }
   .btn:active:not(:disabled) { transform: translateY(1px); }
   .btn.primary {
-    background: rgba(255,255,255,.92); color: var(--ink); border-color: transparent;
+    background: var(--solid); color: var(--solid-text); border-color: transparent;
     box-shadow: 0 0 16px rgba(var(--house), .35);
   }
-  .btn.primary:hover:not(:disabled) { background: #fff; box-shadow: 0 0 22px rgba(var(--house), .5); }
-  .btn.danger { background: rgba(255,107,107,.12); border-color: rgba(255,107,107,.35); color: #ffb3b3; }
-  .btn.danger:hover:not(:disabled) { background: rgba(255,107,107,.2); }
+  .btn.primary:hover:not(:disabled) { background: var(--solid); box-shadow: 0 0 22px rgba(var(--house), .5); }
+  .btn.danger { background: rgba(var(--bad-rgb), .12); border-color: rgba(var(--bad-rgb), .35); color: var(--bad-text); }
+  .btn.danger:hover:not(:disabled) { background: rgba(var(--bad-rgb), .2); }
   .btn.sm { padding: 6px 12px; font-size: 12.5px; }
   .btn.ghost { background: none; border-color: transparent; color: var(--dim); }
-  .btn.ghost:hover:not(:disabled) { background: rgba(255,255,255,.08); color: var(--text); }
+  .btn.ghost:hover:not(:disabled) { background: var(--fill-2); color: var(--text); }
   button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
     outline: 2px solid rgba(var(--house), .9); outline-offset: 2px;
   }
@@ -98,7 +169,7 @@
   .sidebar {
     border-right: 1px solid var(--card-line);
     padding: 16px 14px;
-    background: rgba(10, 10, 30, .45);
+    background: var(--sidebar-bg);
     display: flex; flex-direction: column; gap: 8px;
     position: sticky; top: 55px; align-self: start;
   }
@@ -114,9 +185,9 @@
     transition: background .15s, border-color .15s;
     position: relative;
   }
-  .nav-item:hover, .server-item:hover { background: rgba(255,255,255,.06); }
+  .nav-item:hover, .server-item:hover { background: var(--fill); }
   .nav-item.active, .server-item.active {
-    background: rgba(255,255,255,.09);
+    background: var(--fill-2);
     border-color: var(--card-line);
     box-shadow: inset 2px 0 0 var(--accent), 0 0 18px rgba(var(--house), .12);
   }
@@ -138,7 +209,7 @@
 
   .content { padding: 22px 26px 56px; min-width: 0; max-width: 1280px; width: 100%; margin: 0 auto; }
   .empty {
-    border: 1px dashed rgba(255,255,255,.18); border-radius: var(--radius);
+    border: 1px dashed var(--line-strong); border-radius: var(--radius);
     padding: 56px 24px; text-align: center; color: var(--dim);
     background: var(--card);
   }
@@ -146,7 +217,7 @@
 
   /* ---------- progress bars ---------- */
   .bar {
-    height: 7px; border-radius: 999px; background: rgba(255,255,255,.09);
+    height: 7px; border-radius: 999px; background: var(--fill-2);
     overflow: hidden;
   }
   .bar > span { display: block; height: 100%; border-radius: 999px; background: var(--ok); transition: width .4s ease; }
@@ -171,7 +242,7 @@
 
   .segmented {
     display: inline-flex; padding: 4px; gap: 4px;
-    border-radius: 999px; background: rgba(255,255,255,.06);
+    border-radius: 999px; background: var(--fill);
     border: 1px solid var(--card-line);
   }
   .segmented button {
@@ -180,7 +251,7 @@
     transition: background .15s, color .15s, box-shadow .15s;
   }
   .segmented button.active {
-    background: rgba(255,255,255,.92); color: var(--ink);
+    background: var(--solid); color: var(--solid-text);
     box-shadow: 0 0 14px rgba(var(--house), .35);
   }
 
@@ -202,9 +273,9 @@
   .card.starting, .card.stopping { --state: var(--warn); }
   .card.crashed, .card.error { --state: var(--bad); }
   .card:hover {
-    border-color: rgba(255,255,255,.2);
+    border-color: var(--line-strong);
     transform: translateY(-1px);
-    box-shadow: 0 10px 30px rgba(0,0,0,.35), 0 0 22px rgba(var(--house), .10);
+    box-shadow: var(--shadow-1), 0 0 22px rgba(var(--house), .10);
   }
   .card .top { display: flex; align-items: center; gap: 9px; min-width: 0; }
   .card .name { font-weight: 700; font-size: 16.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -234,16 +305,16 @@
     padding: 4px 11px; border-radius: 999px; font-size: 11px;
     font-weight: 700; letter-spacing: .9px; text-transform: uppercase;
     border: 1px solid var(--card-line); color: var(--dim);
-    background: rgba(255,255,255,.06);
+    background: var(--fill);
   }
-  .badge.running { color: var(--ok); border-color: rgba(92,242,160,.4); background: rgba(92,242,160,.10); }
-  .badge.starting, .badge.stopping { color: var(--warn); border-color: rgba(255,207,122,.4); background: rgba(255,207,122,.10); }
-  .badge.crashed, .badge.error { color: var(--bad); border-color: rgba(255,107,107,.4); background: rgba(255,107,107,.10); }
+  .badge.running { color: var(--ok); border-color: rgba(var(--ok-rgb), .4); background: rgba(var(--ok-rgb), .10); }
+  .badge.starting, .badge.stopping { color: var(--warn); border-color: rgba(var(--warn-rgb), .4); background: rgba(var(--warn-rgb), .10); }
+  .badge.crashed, .badge.error { color: var(--bad); border-color: rgba(var(--bad-rgb), .4); background: rgba(var(--bad-rgb), .10); }
   .actions { display: flex; gap: 8px; flex-wrap: wrap; margin-left: auto; align-items: center; }
 
   .banner {
     margin-top: 12px; padding: 11px 14px; border-radius: 14px;
-    border: 1px solid rgba(255,207,122,.45); background: rgba(255,207,122,.08);
+    border: 1px solid rgba(var(--warn-rgb), .45); background: rgba(var(--warn-rgb), .08);
     color: var(--warn); font-size: 13.5px;
     display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
   }
@@ -260,7 +331,7 @@
   /* ---------- tabs ---------- */
   .tabs {
     display: inline-flex; padding: 4px; gap: 4px; margin: 18px 0 0;
-    border-radius: 999px; background: rgba(255,255,255,.06);
+    border-radius: 999px; background: var(--fill);
     border: 1px solid var(--card-line); max-width: 100%; overflow-x: auto;
   }
   .tabs button {
@@ -269,7 +340,7 @@
     white-space: nowrap; transition: background .15s, color .15s, box-shadow .15s;
   }
   .tabs button.active {
-    background: rgba(255,255,255,.92); color: var(--ink);
+    background: var(--solid); color: var(--solid-text);
     box-shadow: 0 0 14px rgba(var(--house), .35);
   }
   .tabpane { padding-top: 14px; }
@@ -284,16 +355,16 @@
   .toolbar .grow { flex: 1; }
 
   pre.log {
-    margin: 0; background: rgba(3, 3, 12, .72);
+    margin: 0; background: var(--log-bg);
     border: 1px solid var(--card-line); border-radius: 14px;
     padding: 13px; height: 420px; overflow: auto;
     font: 12.5px/1.6 ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-    white-space: pre-wrap; word-break: break-word; color: #cfc9e6;
+    white-space: pre-wrap; word-break: break-word; color: var(--log-text);
   }
   .cmd-row { display: flex; gap: 8px; margin-top: 10px; }
   .cmd-row input {
     flex: 1; min-width: 0;
-    background: rgba(255,255,255,.06); border: 1px solid var(--card-line);
+    background: var(--fill); border: 1px solid var(--card-line);
     border-radius: 999px; padding: 10px 16px;
     font-family: ui-monospace, Menlo, monospace; font-size: 12.5px;
   }
@@ -307,7 +378,7 @@
   th { color: var(--faint); font-size: 10.5px; text-transform: uppercase; letter-spacing: 1.1px; font-weight: 700; }
   tr:last-child td { border-bottom: none; }
   tbody tr { transition: background .12s; }
-  tbody tr:hover { background: rgba(255,255,255,.04); }
+  tbody tr:hover { background: var(--fill); }
   td.actions-cell { text-align: right; white-space: nowrap; }
   td.actions-cell button, td.actions-cell a { margin-left: 6px; }
   .mono { font-family: ui-monospace, Menlo, monospace; font-size: 12px; }
@@ -315,7 +386,7 @@
   .path { font-family: ui-monospace, Menlo, monospace; font-size: 12px; color: var(--accent); word-break: break-all; }
   .crumbs { display: flex; gap: 2px; flex-wrap: wrap; align-items: center; font-family: ui-monospace, Menlo, monospace; font-size: 12px; }
   .crumbs button { padding: 3px 7px; font-size: 12px; background: none; border: 0; border-radius: 8px; color: var(--accent); }
-  .crumbs button:hover { background: rgba(255,255,255,.08); }
+  .crumbs button:hover { background: var(--fill-2); }
   .kv { display: grid; grid-template-columns: 190px 1fr; }
   .kv > div { padding: 11px 4px; border-bottom: 1px solid var(--card-line); font-size: 13.5px; }
   .kv > div:nth-last-child(-n+2) { border-bottom: none; }
@@ -323,19 +394,19 @@
 
   /* ---------- dialogs ---------- */
   dialog {
-    background: #14122c; color: var(--text);
-    border: 1px solid rgba(255,255,255,.16); border-radius: 20px;
+    background: var(--surface-solid); color: var(--text);
+    border: 1px solid var(--line-strong); border-radius: 20px;
     padding: 22px; width: min(560px, calc(100vw - 32px));
-    box-shadow: 0 30px 90px rgba(0,0,0,.65), 0 0 40px rgba(var(--house), .18);
+    box-shadow: var(--shadow-2), 0 0 40px rgba(var(--house), .18);
   }
-  dialog::backdrop { background: rgba(3, 3, 10, .74); backdrop-filter: blur(3px); }
+  dialog::backdrop { background: rgba(15, 18, 14, .62); backdrop-filter: blur(3px); }
   dialog h3 { margin: 0 0 16px; font-size: 18px; }
   .field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
   .field label { font-size: 10.5px; text-transform: uppercase; letter-spacing: 1.1px; color: var(--faint); font-weight: 700; }
   .row-end { display: flex; gap: 8px; justify-content: flex-end; margin-top: 18px; }
   input, select, textarea {
     width: 100%; padding: 10px 13px;
-    background: rgba(255,255,255,.06); border: 1px solid var(--card-line);
+    background: var(--fill); border: 1px solid var(--card-line);
     border-radius: 12px; color: var(--text); font-size: 14px;
   }
   input::placeholder, textarea::placeholder { color: var(--faint); }
@@ -343,21 +414,21 @@
     outline: none; border-color: rgba(var(--house), .7);
     box-shadow: 0 0 0 3px rgba(var(--house), .18);
   }
-  select option, select optgroup { background: #1b1838; color: #fff; }
+  select option, select optgroup { background: var(--surface-solid); color: var(--text); }
   textarea { resize: vertical; min-height: 240px; font-family: ui-monospace, Menlo, monospace; font-size: 12.5px; }
 
   #toast {
     position: fixed; left: 50%; bottom: max(22px, env(safe-area-inset-bottom));
     transform: translate(-50%, 30px); opacity: 0;
     transition: opacity .25s, transform .25s;
-    background: rgba(20, 18, 44, .96); border: 1px solid var(--card-line);
+    background: var(--toast-bg); border: 1px solid var(--card-line);
     color: var(--text); padding: 11px 18px; border-radius: 999px; font-size: 13.5px;
     max-width: min(440px, calc(100vw - 32px));
-    box-shadow: 0 8px 30px rgba(0,0,0,.5), 0 0 20px rgba(var(--house), .25);
+    box-shadow: var(--shadow-1), 0 0 20px rgba(var(--house), .25);
     pointer-events: none; z-index: 50; text-align: center;
   }
   #toast.show { opacity: 1; transform: translate(-50%, 0); }
-  #toast.err { border-color: rgba(255,107,107,.5); color: #ffb3b3; }
+  #toast.err { border-color: rgba(var(--bad-rgb), .5); color: var(--bad-text); }
 
   /* ---------- catalog (SmartTube-style: big focusable cards, version shelves) ---------- */
   .catalog-software {
@@ -394,7 +465,7 @@
     color: var(--accent); border: 1px solid rgba(var(--house), .35);
   }
   .catalog-soft .soft-tag.untested {
-    background: rgba(255,107,107,.12); color: #ffb3b3; border-color: rgba(255,107,107,.35);
+    background: rgba(var(--bad-rgb), .12); color: var(--bad-text); border-color: rgba(var(--bad-rgb), .35);
   }
 
   .catalog-versions {
@@ -402,20 +473,20 @@
   }
   .catalog-ver {
     padding: 8px 12px; border-radius: 10px; border: 1px solid var(--card-line);
-    background: rgba(255,255,255,.06); color: var(--text);
+    background: var(--fill); color: var(--text);
     font-size: 13px; cursor: pointer; transition: .15s;
     display: inline-flex; align-items: center; gap: 7px;
   }
-  .catalog-ver:hover:not(.disabled) { border-color: rgba(var(--house), .6); background: rgba(255,255,255,.1); }
+  .catalog-ver:hover:not(.disabled) { border-color: rgba(var(--house), .6); background: var(--fill-2); }
   .catalog-ver.active { border-color: var(--accent); background: rgba(var(--house), .15); }
   .catalog-ver.disabled { opacity: .45; cursor: not-allowed; }
   .catalog-ver .java-tag {
-    font-size: 10px; background: rgba(255,255,255,.08);
+    font-size: 10px; background: var(--fill-2);
     border: 1px solid var(--card-line); border-radius: 6px; padding: 1px 6px; color: var(--dim);
   }
 
   .catalog-install {
-    background: rgba(255,255,255,.04);
+    background: var(--fill);
     border: 1px solid var(--card-line);
     border-radius: 14px; padding: 14px; margin-top: 10px;
   }
@@ -458,6 +529,9 @@
   @media (max-width: 560px) {
     .clock { display: none; }
     #btn-new-2 { display: none; }
+    .topbar { gap: 9px; padding-left: 12px; padding-right: 12px; }
+    #conn-text { display: none; }
+    .btn.primary { padding: 8px 13px; font-size: 13px; }
   }
   @media (prefers-reduced-motion: reduce) {
     * { transition: none !important; animation: none !important; }
@@ -468,10 +542,30 @@
 <div class="backdrop" aria-hidden="true"></div>
 
 <div class="topbar">
-  <div class="wordmark">PS5<span>Craft</span></div>
+  <div class="brand">
+    <svg class="logo" viewBox="0 0 40 40" aria-hidden="true" focusable="false">
+      <rect x="3" y="6.4" width="34" height="7.6" rx="3.2" fill="#666e71"/>
+      <rect x="3" y="16.2" width="34" height="7.6" rx="3.2" fill="#c7cbca"/>
+      <rect class="logo-bar" x="3" y="26" width="34" height="7.6" rx="3.2" fill="#2e352e"/>
+      <circle cx="9" cy="20" r="1.7" fill="#b3d948"/>
+      <circle cx="9" cy="29.8" r="1.7" fill="#b3d948"/>
+      <g fill="#2e352e" opacity=".45">
+        <circle cx="20" cy="19.3" r=".7"/><circle cx="23.4" cy="19.3" r=".7"/>
+        <circle cx="26.8" cy="19.3" r=".7"/><circle cx="30.2" cy="19.3" r=".7"/>
+        <circle cx="21.7" cy="21.4" r=".7"/><circle cx="25.1" cy="21.4" r=".7"/>
+        <circle cx="28.5" cy="21.4" r=".7"/>
+        <circle cx="20" cy="29.1" r=".7"/><circle cx="23.4" cy="29.1" r=".7"/>
+        <circle cx="26.8" cy="29.1" r=".7"/><circle cx="30.2" cy="29.1" r=".7"/>
+        <circle cx="21.7" cy="31.2" r=".7"/><circle cx="25.1" cy="31.2" r=".7"/>
+        <circle cx="28.5" cy="31.2" r=".7"/>
+      </g>
+    </svg>
+    <div class="wordmark">PS5<span>Craft</span></div>
+  </div>
   <div class="conn" id="conn" role="status" aria-live="polite"><span class="led" aria-hidden="true"></span><span id="conn-text">connecting…</span></div>
   <span class="grow"></span>
   <span class="clock" id="clock" aria-hidden="true"></span>
+  <button class="btn sm ghost" id="theme-toggle" aria-label="Switch theme" title="Switch theme">◐</button>
   <button class="btn primary" id="btn-new">New server</button>
 </div>
 
@@ -591,6 +685,7 @@
         <button data-tab="console" class="active" role="tab">Console</button>
         <button data-tab="files" role="tab">Files</button>
         <button data-tab="backups" role="tab">Backups</button>
+        <button data-tab="mods" role="tab">Mods</button>
         <button data-tab="settings" role="tab">Settings</button>
       </div>
 
@@ -651,6 +746,47 @@
         </div>
       </div>
 
+      <div class="tabpane" id="tab-mods" role="tabpanel" hidden>
+        <div class="panel">
+          <div class="panel-head">
+            <span class="title">Content</span>
+            <span class="muted" id="mods-dir" style="font-size:12.5px"></span>
+            <span class="grow" style="flex:1"></span>
+            <button class="btn sm" id="btn-mods-refresh">Refresh</button>
+          </div>
+          <div class="toolbar">
+            <input type="text" id="mods-query" placeholder="Search mods, plugins or datapacks" autocomplete="off" aria-label="Content search" style="flex:1">
+            <button class="btn primary" id="btn-mods-search">Search</button>
+          </div>
+          <p class="muted" id="mods-note" style="margin:9px 0 0;font-size:12.5px"></p>
+          <div id="mods-results" class="catalog-versions" style="margin-top:12px"></div>
+
+          <div id="mods-install" class="catalog-install" hidden>
+            <div id="mods-versions" class="catalog-versions"></div>
+            <div class="line"><span>Version</span><b id="mods-version-name">—</b></div>
+            <div class="line"><span>File</span><b id="mods-file">—</b></div>
+            <div class="line"><span>Size</span><b id="mods-size">—</b></div>
+            <div class="line"><span>Dependencies</span><b id="mods-deps">—</b></div>
+            <div class="bar" aria-label="Download progress"><span id="mods-progress" style="width:0%"></span></div>
+            <div style="display:flex;gap:8px;margin-top:10px">
+              <button class="btn primary" id="btn-mods-install" disabled>Install</button>
+            </div>
+            <p class="muted" id="mods-status" style="font-size:12.5px;margin:8px 0 0"></p>
+          </div>
+
+          <div class="panel-head" style="margin-top:20px">
+            <span class="title">Installed</span>
+            <span class="muted" id="mods-count" style="font-size:12.5px"></span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>File</th><th>Size</th><th></th></tr></thead>
+              <tbody id="mods-installed"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
       <div class="tabpane" id="tab-settings" role="tabpanel" hidden>
         <div class="panel">
           <div class="kv" id="settings-kv"></div>
@@ -659,6 +795,19 @@
             <button class="btn sm" id="act-eula-2">Accept EULA</button>
             <span class="grow"></span>
             <button class="btn sm danger" id="act-delete">Delete server</button>
+          </div>
+        </div>
+
+        <div class="panel" style="margin-top:16px">
+          <div class="panel-head">
+            <span class="title">Storage</span>
+            <span class="muted" id="storage-note" style="font-size:12.5px"></span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Volume</th><th>Path</th><th>Free</th><th></th></tr></thead>
+              <tbody id="volume-list"></tbody>
+            </table>
           </div>
         </div>
       </div>
@@ -773,6 +922,8 @@ const state = {
   lastHeader: "",
   lastSettings: "",
   catalog: { software: null, version: null, artifact: null, active: null },
+  mods: { project: null, version: null, active: false },
+  system: null,
 };
 
 /* ---------- helpers ---------- */
@@ -872,20 +1023,53 @@ async function loadInstances() {
 async function loadSystem() {
   try {
     const data = await api("/api/system");
+    state.system = data;
     state.disk = data.disk || null;
     state.sizes = data.instances || {};
   } catch (e) {
+    state.system = null;
     state.disk = null;
     state.sizes = {};
   }
   renderStorage();
   state.lastOverview = "";
   state.lastHeader = "";
+  state.lastSettings = "";
   renderOverview();
   renderDetail();
 }
 
 function renderStorage() {
+  const sys = state.system;
+  const volumes = (sys && sys.storage) || [];
+  const present = volumes.filter((v) => v.present);
+  $("#storage-note").textContent = sys
+    ? (sys.shadowmount ? "ShadowMount+ detected · data root " + sys.data_root
+                       : "ShadowMount+ not detected · data root " + sys.data_root)
+    : "";
+  const tbody = $("#volume-list");
+  if (tbody) {
+    tbody.innerHTML = "";
+    if (!present.length) {
+      tbody.innerHTML = '<tr><td colspan="4" class="muted">No mounted volume found.</td></tr>';
+    } else {
+      for (const v of present) {
+        const tr = document.createElement("tr");
+        const current = sys && (sys.data_root === v.path + "/ps5craft" ||
+                                sys.data_root === v.path);
+        const action = !v.writable ? '<span class="badge stopped">read-only</span>'
+          : current ? '<span class="badge running">in use</span>'
+          : '<button class="btn sm" data-volume="' + esc(v.path) + '">Use</button>';
+        tr.innerHTML =
+          '<td>' + esc(v.label) + '</td>' +
+          '<td class="mono">' + esc(v.path) + '</td>' +
+          '<td>' + (v.total ? fmtBytes(v.free) : "—") + '</td>' +
+          '<td>' + action + '</td>';
+        tbody.appendChild(tr);
+      }
+    }
+  }
+
   const box = $("#storage");
   const d = state.disk;
   if (!d || !d.total) {
@@ -944,6 +1128,7 @@ function openServer(id) {
   state.fsPath = "";
   state.lastHeader = "";
   state.lastSettings = "";
+  modsReset();
   renderSidebar();
   renderOverview();
   renderDetail();
@@ -1090,7 +1275,8 @@ function renderDetail() {
   }
 
   const skey = JSON.stringify([inst.id, inst.software, inst.version, inst.memory_max_mib,
-    inst.memory_initial_mib, inst.online_mode, inst.eula_accepted, inst.jar_path]);
+    inst.memory_initial_mib, inst.online_mode, inst.eula_accepted, inst.jar_path,
+    state.system ? state.system.data_root : ""]);
   if (skey !== state.lastSettings) {
     state.lastSettings = skey;
     $("#settings-kv").innerHTML = `
@@ -1100,7 +1286,8 @@ function renderDetail() {
       <div class="k">Heap</div><div>${inst.memory_initial_mib}–${inst.memory_max_mib} MiB</div>
       <div class="k">Online mode</div><div>${inst.online_mode ? "yes" : "no"}</div>
       <div class="k">EULA</div><div>${inst.eula_accepted ? "accepted" : "not accepted"}</div>
-      <div class="k">Directory</div><div class="mono">instances/${esc(inst.id)}</div>`;
+      <div class="k">Directory</div><div class="mono">instances/${esc(inst.id)}</div>
+      <div class="k">Data root</div><div class="mono">${esc(state.system ? state.system.data_root : "—")}</div>`;
   }
 }
 
@@ -1108,11 +1295,12 @@ function switchTab(tab) {
   state.tab = tab;
   for (const b of document.querySelectorAll("#tabs button"))
     b.classList.toggle("active", b.dataset.tab === tab);
-  for (const name of ["console", "files", "backups", "settings"])
+  for (const name of ["console", "files", "backups", "mods", "settings"])
     $("#tab-" + name).hidden = name !== tab;
   if (tab === "console") loadLogs();
   if (tab === "files") loadFiles(state.fsPath);
   if (tab === "backups") loadBackups();
+  if (tab === "mods") loadMods();
 }
 
 /* ---------- catalog (SmartTube-style install flow) ---------- */
@@ -1302,6 +1490,215 @@ async function pollInstall() {
     $("#catalog-install-btn").disabled = false;
     $("#catalog-cancel").textContent = "Close";
   }
+}
+
+/* ---------- content store (mods, plugins, datapacks) ---------- */
+
+function contentDir(software) {
+  if (software === "fabric") return "mods/";
+  if (software === "paper") return "plugins/";
+  return "world/datapacks/";
+}
+
+function modsReset() {
+  state.mods = { project: null, version: null, active: false };
+  $("#mods-results").innerHTML = "";
+  $("#mods-install").hidden = true;
+  $("#mods-note").textContent = "";
+  $("#mods-status").textContent = "";
+  $("#mods-progress").style.width = "0%";
+  $("#btn-mods-install").disabled = true;
+}
+
+async function loadMods() {
+  const inst = sel();
+  if (!inst) return;
+  $("#mods-dir").textContent = contentDir(inst.software);
+  try {
+    const data = await api("/api/instances/" + encodeURIComponent(inst.id) + "/mods");
+    const files = data.files || [];
+    $("#mods-count").textContent = files.length ? files.length + " file" + (files.length === 1 ? "" : "s") : "";
+    const tbody = $("#mods-installed");
+    tbody.innerHTML = "";
+    if (!files.length) {
+      tbody.innerHTML = '<tr><td colspan="3" class="muted">Nothing installed yet.</td></tr>';
+      return;
+    }
+    for (const f of files) {
+      const tr = document.createElement("tr");
+      tr.innerHTML = '<td class="mono">' + esc(f.name) + '</td><td>' + fmtBytes(f.size) + '</td>';
+      const td = document.createElement("td");
+      const b = document.createElement("button");
+      b.className = "btn sm";
+      b.textContent = "Remove";
+      b.addEventListener("click", () => removeMod(f.name));
+      td.appendChild(b);
+      tr.appendChild(td);
+      tbody.appendChild(tr);
+    }
+  } catch (e) { toast(e.message, true); }
+}
+
+async function searchMods() {
+  const inst = sel();
+  if (!inst) return;
+  const query = $("#mods-query").value.trim();
+  $("#mods-note").textContent = "Searching…";
+  $("#mods-results").innerHTML = "";
+  try {
+    const params = new URLSearchParams({
+      software: inst.software, version: inst.version, query: query
+    });
+    const data = await api("/api/mods?" + params);
+    const results = data.results || [];
+    $("#mods-note").textContent = results.length
+      ? (data.source === "hangar" ? "Hangar" : "Modrinth") + " results for " + inst.software + " " + inst.version
+      : "No results.";
+    for (const project of results) {
+      const b = document.createElement("button");
+      b.className = "catalog-ver";
+      b.style.textAlign = "left";
+      b.title = project.description || "";
+      b.innerHTML = '<span style="font-weight:700">' + esc(project.title) +
+        '</span><span class="java-tag">' + esc(project.project_type) + '</span>';
+      b.addEventListener("click", () => pickMod(project));
+      $("#mods-results").appendChild(b);
+    }
+  } catch (e) { $("#mods-note").textContent = "Search failed: " + e.message; }
+}
+
+async function pickMod(project) {
+  const inst = sel();
+  if (!inst) return;
+  state.mods.project = project;
+  state.mods.version = null;
+  $("#mods-install").hidden = false;
+  $("#mods-status").textContent = "Loading versions…";
+  $("#mods-progress").style.width = "0%";
+  $("#mods-versions").innerHTML = "";
+  $("#mods-version-name").textContent = "—";
+  $("#mods-file").textContent = "—";
+  $("#mods-size").textContent = "—";
+  $("#mods-deps").textContent = "—";
+  $("#btn-mods-install").disabled = true;
+  try {
+    const params = new URLSearchParams({
+      project: project.id, software: inst.software,
+      version: inst.version, source: project.source
+    });
+    const data = await api("/api/mods/versions?" + params);
+    const versions = data.versions || [];
+    if (!versions.length) {
+      $("#mods-status").textContent = "No version fits this server.";
+      return;
+    }
+    const best = versions[0];
+    $("#mods-status").textContent =
+      "Auto-picked " + (best.name || best.id) +
+      (best.channel && best.channel !== "release" ? " (" + best.channel + ")" : "") +
+      " \u00b7 " + versions.length + " version" + (versions.length === 1 ? "" : "s") +
+      " fit " + inst.software + " " + inst.version + ".";
+    for (const file of versions) {
+      const chip = document.createElement("button");
+      chip.className = "catalog-ver";
+      const label = document.createElement("span");
+      label.textContent = file.name || file.id;
+      chip.appendChild(label);
+      if (file.channel && file.channel !== "release") {
+        const tag = document.createElement("span");
+        tag.className = "java-tag";
+        tag.textContent = file.channel;
+        chip.appendChild(tag);
+      }
+      chip.addEventListener("click", () => pickModVersion(file, chip));
+      $("#mods-versions").appendChild(chip);
+    }
+    pickModVersion(best, $("#mods-versions").firstChild);
+  } catch (e) { $("#mods-status").textContent = "Versions failed: " + e.message; }
+}
+
+function pickModVersion(file, chip) {
+  state.mods.version = file;
+  for (const el of $("#mods-versions").children)
+    el.classList.toggle("active", el === chip);
+  $("#mods-version-name").textContent = file.name || file.id;
+  $("#mods-file").textContent = file.file_name || "—";
+  $("#mods-size").textContent = file.size ? fmtBytes(file.size) : "—";
+  const deps = (file.dependencies || []).filter((d) => d.kind === "required");
+  $("#mods-deps").textContent = deps.length
+    ? deps.map((d) => d.name || d.project_id).join(", ")
+    : "none";
+  $("#btn-mods-install").disabled = false;
+}
+
+async function installMod() {
+  const inst = sel();
+  const project = state.mods.project;
+  const file = state.mods.version;
+  if (!inst || !project || !file) return;
+  state.mods.active = true;
+  $("#btn-mods-install").disabled = true;
+  $("#mods-progress").style.width = "0%";
+  $("#mods-status").textContent = "Starting…";
+  try {
+    await api("/api/instances/" + encodeURIComponent(inst.id) + "/mods", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ source: file.source, project: project.id, version: file.id }),
+    });
+  } catch (e) {
+    $("#mods-status").textContent = "Install failed: " + e.message;
+    state.mods.active = false;
+    $("#btn-mods-install").disabled = false;
+    return;
+  }
+  pollModInstall();
+}
+
+async function pollModInstall() {
+  const inst = sel();
+  if (!inst || !state.mods.active) return;
+  try {
+    const st = await api("/api/instances/" + encodeURIComponent(inst.id) + "/mods/status");
+    const received = Number(st.received || 0);
+    const total = Number(st.total || 0);
+    const pct = total > 0 ? Math.round((received / total) * 100) : 0;
+    $("#mods-progress").style.width = Math.min(100, pct) + "%";
+    $("#mods-status").textContent = total > 0
+      ? pct + "% · " + fmtBytes(received) + " of " + fmtBytes(total)
+      : "Downloading…";
+    if (st.done) {
+      state.mods.active = false;
+      if (st.failed) {
+        $("#mods-status").textContent = st.error || "Download failed";
+        $("#btn-mods-install").disabled = false;
+      } else {
+        $("#mods-progress").style.width = "100%";
+        $("#mods-status").textContent = "Installed " + (st.file_name || "");
+        toast("Installed " + (st.file_name || "content"));
+        loadMods();
+        loadInstances();
+      }
+      return;
+    }
+    setTimeout(pollModInstall, 1000);
+  } catch (e) {
+    state.mods.active = false;
+    $("#mods-status").textContent = "Progress failed: " + e.message;
+    $("#btn-mods-install").disabled = false;
+  }
+}
+
+async function removeMod(name) {
+  const inst = sel();
+  if (!inst || !name) return;
+  if (!confirm("Remove " + name + "?")) return;
+  try {
+    await api("/api/instances/" + encodeURIComponent(inst.id) + "/mods?name=" +
+              encodeURIComponent(name), { method: "DELETE" });
+    toast("Removed " + name);
+    loadMods();
+  } catch (e) { toast(e.message, true); }
 }
 
 /* ---------- actions ---------- */
@@ -1636,6 +2033,29 @@ $("#fs-upload-input").addEventListener("change", async (ev) => {
 $("#btn-backup-world").addEventListener("click", () => createBackup(false));
 $("#btn-backup-full").addEventListener("click", () => createBackup(true));
 $("#btn-backup-refresh").addEventListener("click", loadBackups);
+$("#btn-mods-refresh").addEventListener("click", loadMods);
+$("#btn-mods-search").addEventListener("click", searchMods);
+$("#btn-mods-install").addEventListener("click", installMod);
+$("#mods-query").addEventListener("keydown", (ev) => {
+  if (ev.key === "Enter") { ev.preventDefault(); searchMods(); }
+});
+$("#volume-list").addEventListener("click", async (ev) => {
+  const button = ev.target.closest("button[data-volume]");
+  if (!button) return;
+  const volume = button.dataset.volume;
+  if (!confirm("Keep PS5Craft data on " + volume + "? Servers in the current data root stay where they are. Restart the title to switch.")) return;
+  try {
+    const data = await api("/api/system/root", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ volume: volume }),
+    });
+    toast("Data root set to " + data.root + " — restart the title");
+    loadSystem();
+  } catch (e) {
+    toast(e.message, true);
+  }
+});
 $("#btn-text-cancel").addEventListener("click", () => $("#dlg-text").close());
 $("#btn-text-save").addEventListener("click", saveEditor);
 
@@ -1663,6 +2083,23 @@ $("#form-new").addEventListener("submit", async (ev) => {
   } catch (e) {
     toast(e.message, true);
   }
+});
+
+function applyTheme(mode) {
+  document.documentElement.dataset.theme = mode;
+  const dark = mode === "dark";
+  const button = $("#theme-toggle");
+  button.textContent = dark ? "☀" : "☾";
+  button.title = dark ? "Switch to light mode" : "Switch to dark mode";
+  button.setAttribute("aria-label", button.title);
+  document.querySelector('meta[name="theme-color"]')
+    .setAttribute("content", dark ? "#171c16" : "#f6f8f6");
+  try { localStorage.setItem("ps5craft-theme", mode); } catch (e) {}
+}
+
+applyTheme(document.documentElement.dataset.theme === "dark" ? "dark" : "light");
+$("#theme-toggle").addEventListener("click", () => {
+  applyTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark");
 });
 
 tickClock();
