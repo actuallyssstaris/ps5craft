@@ -16,6 +16,9 @@ on:
       - 'gui/**'
       - 'core/**'
       - 'platform/**'
+      - 'src/http_api.*'
+      - 'web/**'
+      - 'assets/**'
       - 'docs/GUI_RESEARCH.md'
       - '.github/workflows/gui.yml'
   pull_request:
